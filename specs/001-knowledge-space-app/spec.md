@@ -64,17 +64,28 @@ As a user, I want to show, search, and edit notes using an LLM as an app in the 
 
 ---
 
+### User Story 5 - Manage Workspaces (Priority: P1)
+
+As a user, I want to create, list, and delete workspaces so that I can organize my knowledge into distinct, manageable collections.
+
+**Why this priority**: This introduces a fundamental organizational layer, crucial for scaling the application beyond a single user's undifferentiated notes.
+
+**Independent Test**: A user can perform a full CRUD cycle on a workspace and see the changes reflected immediately.
+
+**Acceptance Scenarios**:
+1. **Given** the user is on the workspace management page, **When** they click "New Workspace" and submit a name, **Then** the new workspace appears in the list.
+2. **Given** an existing workspace, **When** the user views the list of workspaces, **Then** the workspace is displayed with its name.
+3. **Given** an existing workspace, **When** the user deletes it, **Then** the workspace and all its associated notes are removed from the system.
+
+---
+
 ### Edge Cases
 
 - **Storage Unavailable**: If the configured storage backend is unreachable, the system should display an error message and retry automatically.
 - **Concurrent Edits**: If two users edit the same note simultaneously, the last write wins and the user is notified of the conflict.
+- **Workspace Deletion**: Deleting a workspace should cascade and delete all notes within that workspace.
 
 ## Requirements *(mandatory)*
-
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
--->
 
 ### Functional Requirements
 
@@ -89,40 +100,37 @@ As a user, I want to show, search, and edit notes using an LLM as an app in the 
 - **FR-009**: System MUST handle concurrent edits gracefully, with a last‑write‑wins strategy and user notification.
 - **FR-010**: System MUST log all CRUD operations for audit purposes.
 - **FR-011**: System MUST integrate with an LLM via MCP to allow showing, searching, and editing notes.
+- **FR-012**: System MUST allow users to create, list, and delete workspaces via the API.
+- **FR-013**: System MUST store notes within a workspace, ensuring logical separation of content.
+- **FR-014**: System MUST define a clear data format for notes stored via fsspec, supporting versioning, history retrieval, and conflict resolution.
 
 ### Key Entities
 
+- **Workspace**: Represents a distinct collection of notes.
+  - *Attributes*: `id` (UUID), `name` (string), `created_at` (timestamp), `updated_at` (timestamp).
 - **Note**: Represents a knowledge entry.
-  - *Attributes*: `id` (UUID), `title` (string), `content` (string), `tags` (list of strings), `created_at` (timestamp), `updated_at` (timestamp).
+  - *Attributes*: `id` (UUID), `workspace_id` (UUID), `title` (string), `content` (string), `tags` (list of strings), `created_at` (timestamp), `updated_at` (timestamp).
 
 ## Success Criteria
 
-<!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
--->
-
 ### Measurable Outcomes
 
-- **SC-001**: Users can create, edit, or delete a note within 5 seconds.
+- **SC-001**: Users can create, edit, or delete a note within 5 seconds.
 - **SC-002**: The system can store and retrieve up to 1,000 notes without performance degradation.
-- **SC-003**: Search queries return results in under 2 seconds for up to 1,000 notes.
-- **SC-004**: Export and import operations work for notes up to 10 MB in size.
-- **SC-005**: The system remains available 99.9 % of the time over a 30‑day period.
-
----
+- **SC-003**: Search queries return results in under 2 seconds for up to 1,000 notes.
+- **SC-004**: Export and import operations work for notes up to 10 MB in size.
+- **SC-005**: The system remains available 99.9% of the time over a 30-day period.
+- **SC-006**: Users can create or delete a workspace within 3 seconds.
+- **SC-007**: The system can manage up to 100 workspaces without performance degradation.
 
 ## Assumptions
 
 - No authentication is required; the app is intended for a small, trusted user base.
 - Data retention policy is unlimited; notes are kept indefinitely unless manually deleted.
 - The frontend and backend run on the same machine or within the same network for simplicity.
-
----
+- The chosen data format for fsspec will leverage existing tools or libraries for versioning and conflict resolution where possible.
 
 ## Notes
 
-- This specification is written for non‑technical stakeholders and intentionally omits implementation details.
-
----
+- This specification is written for non-technical stakeholders and intentionally omits implementation details.
 
