@@ -18,7 +18,7 @@ This plan outlines the implementation of a small-scale knowledge space app with 
 **Target Platform**: Linux server (Backend), Web browser (Frontend)
 **Project Type**: Web application  
 **Performance Goals**: SC-001: Users can create, edit, or delete a note within 5 seconds. SC-002: The system can store and retrieve up to 1,000 notes without performance degradation. SC-003: Search queries return results in under 2 seconds for up to 1,000 notes. SC-004: Export and import operations work for notes up to 10 MB in size. SC-006: Users can create or delete a workspace within 3 seconds. SC-007: The system can manage up to 100 workspaces without performance degradation.  
-**Constraints**: SC-005: The system remains available 99.9% of the time over a 30-day period. No authentication is required. Data retention policy is unlimited. Frontend and backend run on the same machine or within the same network. The chosen data format for fsspec will leverage existing tools or libraries for versioning and conflict resolution where possible.  
+**Constraints**: No authentication is required. Data retention policy is unlimited. Frontend and backend run on the same machine or within the same network. The chosen data format for fsspec will leverage existing tools or libraries for versioning and conflict resolution where possible.  
 **Scale/Scope**: Small-scale knowledge space app for home use (1-3 people), up to 100 workspaces and 1,000 notes per workspace.
 
 ## Constitution Check
@@ -49,9 +49,9 @@ This plan outlines the implementation of a small-scale knowledge space app with 
 - **Check**: Does the design adhere to simplicity and YAGNI principles?
 - **Status**: PASS (Small-scale app, lightweight frontend, initially local storage, JSON data format for fsspec)
 
-### VII. Data Format for fsspec Storage
-- **Check**: Is there a clear data format defined for notes stored via fsspec, supporting versioning, history retrieval, and conflict resolution?
-- **Status**: NEEDS CLARIFICATION (Data format defined in `data-model.md`, but implementation details for versioning and conflict resolution with `fsspec` need research) - *Research planned in research.md*
+### VII. fsspec Directory Structure for Versioning and Conflict Resolution
+- **Check**: Is the fsspec directory structure clearly defined to support backend-managed versioning, history retrieval, and conflict resolution?
+- **Status**: NEEDS CLARIFICATION (The current directory structure in `data-model.md` is provisional and requires further design to explicitly support these features.) - *Research planned in research.md*
 
 ### VIII. Workspace Management
 - **Check**: Are there clear guidelines for managing workspaces, including data isolation and efficient operations?

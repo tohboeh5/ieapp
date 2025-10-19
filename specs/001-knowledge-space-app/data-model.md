@@ -57,9 +57,9 @@ Represents a knowledge entry within the application.
 
 ## Data Format for fsspec Storage
 
-To support versioning, history retrieval, and conflict resolution, notes will be stored in a structured format within the `fsspec` backend. Each note will be stored as a separate file, and a directory structure will be used to organize notes by workspace.
+To enable the backend to implement versioning, history retrieval, and conflict resolution, notes will be stored in a structured format within the `fsspec` backend. The design of the folder tree and naming conventions for data storage is crucial for these backend-driven features. Each note will be stored as a separate file, and a directory structure will be used to organize notes by workspace and facilitate version tracking.
 
-### Directory Structure:
+### Directory Structure (Provisional):
 
 ```
 <fsspec_root>/
@@ -132,5 +132,5 @@ A `global_metadata.json` file at the root will track all workspaces:
 
 ### Conflict Resolution Strategy:
 
-- **Last-Write-Wins**: For concurrent edits, the system will implement a last-write-wins strategy at the file level. The `updated_at` timestamp in the note file will determine the most recent version. Users will be notified of potential conflicts.
-- **Future Enhancements**: The `version_history` field in the note file provides a foundation for more sophisticated conflict resolution mechanisms (e.g., three-way merge) in the future, by allowing tracking of changes.
+- **Backend-Managed Last-Write-Wins**: For concurrent edits, the backend system will implement a last-write-wins strategy at the file level. The `updated_at` timestamp in the note file will determine the most recent version. Users will be notified of potential conflicts by the backend.
+- **Future Enhancements**: The `version_history` field in the note file provides a foundation for more sophisticated conflict resolution mechanisms (e.g., three-way merge) in the future, by allowing the backend to track changes and manage versions.

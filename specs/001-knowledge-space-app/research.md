@@ -22,10 +22,10 @@
 - **Task**: Explore strategies for integration testing between the FastAPI backend and the SolidJS frontend, including contract testing.
 - **Context**: The "Constitution Check" in `plan.md` has "IV. Integration Testing: NEEDS CLARIFICATION". This is crucial for ensuring the proper functioning of the entire application.
 
-### Research Task 5: fsspec Data Format for Versioning and Conflict Resolution
+### Research Task 5: fsspec Storage Design for Backend-Managed Versioning and Conflict Resolution
 
-- **Task**: Investigate existing patterns and libraries for managing file-based data with versioning, history tracking, and conflict resolution using `fsspec`.
-- **Context**: The `spec.md` and `data-model.md` now specify a detailed JSON-based data format for notes and workspaces, with a requirement for future versioning and conflict resolution. This task will explore how to best implement this with `fsspec`.
+- **Task**: Design and clearly define the `fsspec` directory structure, naming conventions, and file formats to explicitly support backend-managed versioning, history retrieval, and conflict resolution for notes and workspaces.
+- **Context**: The current directory structure in `data-model.md` is provisional. This task is critical for ensuring the backend can effectively implement these features without relying on `fsspec` itself for versioning, and for defining the detailed JSON-based data format for notes and workspaces.
 
 ### Research Task 6: Workspace Management Best Practices
 
