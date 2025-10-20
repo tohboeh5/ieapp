@@ -7,10 +7,10 @@
 - **Task**: Identify suitable testing frameworks for the Python backend (FastAPI) and the SolidJS frontend (bunjs).
 - **Context**: The `plan.md` indicates "Testing: NEEDS CLARIFICATION". We need to select appropriate tools to ensure code quality and adherence to TDD principles.
 
-### Research Task 2: Best Practices for Python Library CLI Interface
+### Research Task 2: Best Practices for `ieapp-cli` Python Library CLI Interface
 
-- **Task**: Investigate best practices for implementing a command-line interface (CLI) for a Python library.
-- **Context**: The "Constitution Check" in `plan.md` has "II. CLI Interface: NEEDS CLARIFICATION". The backend is intended to be published as a library, requiring a robust CLI.
+- **Task**: Investigate best practices for implementing a command-line interface (CLI) for the `ieapp-cli` Python library.
+- **Context**: The "Constitution Check" in `plan.md` has "II. CLI Interface: NEEDS CLARIFICATION". The `ieapp-cli` is intended to be published as a library, requiring a robust CLI.
 
 ### Research Task 3: Applying TDD Principles to Python (FastAPI) and SolidJS (bunjs)
 
