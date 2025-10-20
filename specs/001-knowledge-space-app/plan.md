@@ -3,15 +3,13 @@
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
-
 ## Summary
 
-This plan outlines the implementation of a small-scale knowledge space app with a Python FastAPI backend and a bunjs+SolidJS frontend. The application will allow users to create, manage, and organize notes within distinct workspaces. Data persistence will leverage `fsspec` with a clearly defined JSON-based data format to support future versioning, history tracking, and conflict resolution. The backend will also be published as a Python library.
+This plan outlines the implementation of a small-scale knowledge space app with a Python FastAPI backend and a bunjs+SolidJS frontend. The application will allow users to create, manage, and organize notes within distinct workspaces. Data persistence will leverage `fsspec` with a clearly defined JSON-based data format to support future versioning, history tracking, and conflict resolution. The backend will also be published as a Python library, `ieapp-cli`, which will be imported by the `backend` service.
 
 ## Technical Context
 
-**Language/Version**: Python 3.9+ (Backend), bunjs+SolidJS (Frontend)  
+**Language/Version**: Python 3.9+ (Backend, ieapp-cli), bunjs+SolidJS (Frontend)  
 **Primary Dependencies**: FastAPI, fsspec (Backend), bunjs, SolidJS (Frontend)  
 **Storage**: fsspec (local, s3, minio, azure blob, etc.) with a JSON-based file format for notes and workspace metadata.  
 **Testing**: NEEDS CLARIFICATION  
@@ -27,10 +25,10 @@ This plan outlines the implementation of a small-scale knowledge space app with 
 
 ### I. Library-First
 - **Check**: Is the backend designed as a library first, with a clear, self-contained purpose?
-- **Status**: PASS (Backend in Python, also published as a library)
+- **Status**: PASS (Backend in Python, also published as a library `ieapp-cli`)
 
 ### II. CLI Interface
-- **Check**: Does the backend library expose functionality via a CLI?
+- **Check**: Does the `ieapp-cli` library expose functionality via a CLI?
 - **Status**: NEEDS CLARIFICATION (Not explicitly stated, but implied for library usage) - *Research planned in research.md*
 
 ### III. Test-First (NON-NEGOTIABLE)
@@ -86,6 +84,10 @@ specs/[###-feature]/
 ### Source Code (repository root)
 
 ```
+ieapp-cli/
+├── src/
+└── tests/
+
 backend/
 ├── src/
 │   ├── models/
@@ -101,7 +103,7 @@ frontend/
 └── tests/
 ```
 
-**Structure Decision**: The project will follow a web application structure with separate `backend/` and `frontend/` directories at the repository root. The `backend/` will contain Python source code for models, services, and API endpoints, along with its tests. The `frontend/` will house the SolidJS application, including components, pages, and services, with its corresponding tests.
+**Structure Decision**: The project will follow a web application structure with separate `ieapp-cli/`, `backend/` and `frontend/` directories at the repository root. The `ieapp-cli/` will contain the Python library. The `backend/` will contain Python source code for models, services, and API endpoints, along with its tests, and will import `ieapp-cli`. The `frontend/` will house the SolidJS application, including components, pages, and services, with its corresponding tests.
 
 ## Complexity Tracking
 

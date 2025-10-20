@@ -1,6 +1,6 @@
 # Quickstart Guide: Knowledge Space App
 
-This guide provides instructions to quickly set up and run the Knowledge Space App, including both the backend API and the frontend application.
+This guide provides instructions to quickly set up and run the Knowledge Space App, including the `ieapp-cli` library, the backend API, and the frontend application.
 
 ## 1. Prerequisites
 
@@ -32,20 +32,31 @@ docker compose up --build
 
 Once the services are up, the API will be accessible at `http://localhost:8000` and the frontend at `http://localhost:3000` (or other configured ports).
 
-## 4. Backend Setup and Run (Manual)
+## 4. Python Backend and Library Setup and Run (Manual)
 
-If you prefer to run the backend directly without Docker:
+If you prefer to run the Python components directly without Docker:
 
-### 4.1. Setup
+### 4.1. `ieapp-cli` Library Setup
 
-Navigate to the `backend` directory and install the Python dependencies:
+Navigate to the `ieapp-cli` directory and install it as an editable Python package. This makes its functionalities available for the `backend` service.
+
+```bash
+cd ieapp-cli
+uv sync
+pip install -e .
+cd ..
+```
+
+### 4.2. Backend Service Setup
+
+Navigate to the `backend` directory and install its Python dependencies. This service will import and utilize the `ieapp-cli` library.
 
 ```bash
 cd backend
-pip install -r requirements.txt
+uv sync
 ```
 
-### 4.2. Configuration (Optional)
+### 4.3. Configuration (Optional)
 
 The backend uses `fsspec` and can be configured to use different storage backends (e.g., local, S3, MinIO, Azure Blob). By default, it uses local storage.
 
@@ -55,12 +66,12 @@ You can specify the storage location using an environment variable or a configur
 export FSSPEC_STORAGE_PATH="./data"
 ```
 
-### 4.3. Run the Backend API
+### 4.4. Run the Backend API
 
-To start the FastAPI server:
+To start the FastAPI server (which uses `ieapp-cli`):
 
 ```bash
-uvicorn main:app --reload
+uvicorn src.ieapp_backend.main:app --reload
 ```
 
 The API will be accessible at `http://127.0.0.1:8000`.
@@ -95,18 +106,18 @@ Once both the backend and frontend are running (either via Docker Compose or man
 - Open your web browser and navigate to the frontend URL (e.g., `http://localhost:3000`).
 - You can now create, list, and delete workspaces. Within each workspace, you can create, edit, delete, and search for notes through the user interface.
 
-## 7. Backend as a Library
+## 7. `ieapp-cli` as a Python Library
 
-If you wish to use the backend as a Python library in your own projects, you can install it:
+If you wish to use `ieapp-cli` as a Python library in your own projects, you can install it (after setting up its environment as in 4.1):
 
 ```bash
-pip install ./backend
+pip install ./ieapp-cli
 ```
 
 Then, you can import and use its modules:
 
 ```python
-from knowledge_space.api import WorkspaceAPI, NoteAPI
+from ieapp_cli.api import WorkspaceAPI, NoteAPI
 # ... use the library
 ```
 
