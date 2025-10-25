@@ -1,2 +1,2 @@
 def main() -> None:
-    print("Hello from ieapp-backend!")
+    print("Hello from ieapp-cli!")
