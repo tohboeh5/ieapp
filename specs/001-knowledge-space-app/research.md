@@ -4,8 +4,62 @@
 
 ### Research Task 1: Testing Frameworks for Python (FastAPI) and SolidJS (bunjs)
 
-- **Task**: Identify suitable testing frameworks for the Python backend (FastAPI) and the SolidJS frontend (bunjs).
-- **Context**: The `plan.md` indicates "Testing: NEEDS CLARIFICATION". We need to select appropriate tools to ensure code quality and adherence to TDD principles.
+**Task**: Identify suitable testing frameworks for the Python backend (FastAPI) and the SolidJS frontend (bunjs).
+**Context**: The `plan.md` indicates "Testing: NEEDS CLARIFICATION". We need to select appropriate tools to ensure code quality and adherence to TDD principles.
+
+#### Python (FastAPI) Testing Stack – 2025 Update
+| Layer | Tool | Why it fits | Notes |
+|-------|------|-------------|-------|
+| Unit | `pytest` | Still the de‑facto test runner | Use `pytest-asyncio` for async tests |
+| HTTP | `fastapi.testclient` (Starlette) | Built‑in, no extra deps | Wrap in `pytest` fixtures |
+| Async | `pytest-asyncio` | Handles `async def` tests | Use `@pytest.mark.asyncio` |
+| Mocking | `pytest-mock` | Wrapper around `unittest.mock` | Allows patching services |
+| Property‑based | `hypothesis` | Generates edge cases automatically | Great for data models |
+| Contract | `schemathesis` | Generates tests from OpenAPI | Works with FastAPI out of the box |
+| HTTP mocking | `respx` | Intercepts `httpx` requests | Useful for external API stubs |
+| Coverage | `pytest-cov` | Generates coverage reports | Integrate with CI |
+| Snapshot | `pytest-snapshot` | Useful for API responses | Optional |
+| BDD | `behave` or `pytest-bdd` | For contract tests | Optional |
+
+**Recommended workflow**
+1. Write unit tests for services and utilities using `pytest`.
+2. Use `TestClient` for endpoint tests, asserting status codes and JSON payloads.
+3. Run `pytest --cov=backend/src` to generate coverage.
+4. Add `pytest-mock` fixtures for external dependencies (e.g., fsspec storage).
+
+#### SolidJS (bun + Solid Start) Testing Stack – 2025 Update
+| Layer | Tool | Why it fits | Notes |
+|-------|------|-------------|-------|
+| Unit | `bun test` (built‑in) | Zero‑config, fast, TS support | Use `--watch` for dev |
+| Component | `@solidjs/testing-library` | React‑like API, works with bun | Requires `@testing-library/dom` |
+| Snapshot | `jest-snapshot` (via `bun test --runInBand`) | For component output | Optional |
+| End‑to‑End | `Playwright` | Cross‑browser, supports bun via Node | Use `bun` to run tests |
+| Mocking | `msw` (Mock Service Worker) | Intercepts network requests | Works with bun via `node` shim |
+| Coverage | `bun test --coverage` | Built‑in coverage reporting | Supports thresholds |
+
+**Recommended workflow**
+1. Write unit tests for utilities and hooks with `bun test`.
+2. Test SolidJS components using `@solidjs/testing-library` and `bun test`.
+3. For integration tests, spin up the FastAPI backend locally and use `Playwright` to exercise the UI.
+4. Add coverage reporting with `bun test --coverage`.
+
+#### Integration & Contract Testing
+* Use `pytest` with `httpx` or `httpx.AsyncClient` to hit the FastAPI endpoints directly.
+* For contract tests, consider `schemathesis` to generate tests from OpenAPI spec.
+* For end‑to‑end, use `Playwright` to drive the SolidJS app against the running backend.
+
+#### Tooling Setup
+```bash
+# Backend
+uv add pytest pytest-asyncio pytest-mock pytest-cov
+uv add -D pytest-snapshot
+
+# Frontend (bun)
+bun add -D @solidjs/testing-library @testing-library/dom
+bun add -D playwright
+```
+
+These choices provide a modern, fast, and maintainable testing ecosystem for both the backend and frontend, aligning with TDD principles and ensuring high code quality.
 
 ### Research Task 2: Best Practices for `ieapp-cli` Python Library CLI Interface
 
