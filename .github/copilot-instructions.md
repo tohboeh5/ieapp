@@ -21,4 +21,6 @@ Python (Backend), bunjs+SolidJS (Frontend): Follow standard conventions
 - 001-knowledge-space-app: Added Python (Backend), bunjs+SolidJS (Frontend) + FastAPI, fsspec (Backend), bunjs, SolidJS (Frontend)
 
 <!-- MANUAL ADDITIONS START -->
+## WEB SEARCH RECOMMENDATION
+You should search on web for best practices and guidelines in nowadays (2025) anytime you start a new feature or technology or research tasks.
 <!-- MANUAL ADDITIONS END -->
