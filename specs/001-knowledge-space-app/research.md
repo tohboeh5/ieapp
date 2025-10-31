@@ -143,8 +143,53 @@ For a library‑style CLI that will be distributed via PyPI, **Typer** is the de
 
 ### Research Task 3: Applying TDD Principles to Python (FastAPI) and SolidJS (bunjs)
 
-- **Task**: Research how to effectively apply Test-Driven Development (TDD) principles to both FastAPI backend and SolidJS frontend development.
-- **Context**: The "Constitution Check" in `plan.md` has "III. Test-First (NON-NEGOTIABLE): NEEDS CLARIFICATION". This is a core principle that needs to be addressed.
+**Task**: Research how to effectively apply Test‑Driven Development (TDD) principles to both the FastAPI backend and the SolidJS frontend.
+
+**Context**: The Constitution Check in `plan.md` lists "III. Test‑First (NON‑NEGOTIABLE): NEEDS CLARIFICATION". The goal is to establish a repeatable, high‑quality workflow that aligns with 2025 best practices.
+
+#### Core TDD Principles (2025)
+| Principle | Description | Practical Tips |
+|-----------|-------------|----------------|
+| **Red‑Green‑Refactor** | Write a failing test first, then minimal code to pass, then refactor. | Use `pytest`/`bun test` to run a single test file; keep tests small and focused. |
+| **Test‑First Design** | Design models, services, and components around the tests you write. | Define Pydantic models and Solid components in isolation before wiring them into routes or pages. |
+| **Isolation & Mocking** | Keep tests independent; mock external dependencies. | `pytest-mock`, `respx` for HTTP, `msw` for browser requests; use dependency injection in FastAPI (`Depends`) and context providers in Solid. |
+| **Property‑Based & Contract Tests** | Generate edge cases automatically and validate against OpenAPI. | `hypothesis` for data models; `schemathesis` for API contracts. |
+| **Continuous Integration** | Run tests, coverage, and mutation on every commit. | GitHub Actions with `pytest --cov`, `bun test --coverage`, and `mutmut`/`stryker`. |
+| **Mutation Testing** | Verify that tests catch real bugs. | Run `mutmut` for Python, `stryker` for JavaScript/TypeScript. |
+| **Test Data Factories** | Reuse realistic data across tests. | Use `factory_boy`‑style helpers or simple factory functions. |
+| **Naming & Organization** | Clear, descriptive test names and folder layout. | `tests/` mirrors `src/`; use `test_*.py` and `*_test.tsx`. |
+| **Coverage Thresholds** | Ensure meaningful coverage without over‑engineering. | 90 % for core modules, 80 % for utilities; enforce via CI. |
+| **Documentation & CI Feedback** | Use test results to drive documentation and code reviews. | Generate JUnit XML, upload to GitHub Checks; auto‑generate docs from test comments. |
+
+#### FastAPI‑Specific TDD Workflow
+1. **Model Tests** – Write `pydantic` model tests first, using `hypothesis` for edge cases.
+2. **Service Layer Tests** – Mock external storage (`fsspec`) with `pytest-mock` or `respx`.
+3. **Endpoint Tests** – Use `TestClient` wrapped in a `pytest` fixture; assert status codes, headers, and JSON schemas.
+4. **Contract Tests** – Run `schemathesis` against the live OpenAPI spec.
+5. **Integration Tests** – Spin up the app with `uvicorn` in a test fixture and hit endpoints with `httpx.AsyncClient`.
+6. **CI Pipeline** – `pytest --cov=backend/src --cov-report=xml` → upload to Codecov; run `mutmut` nightly.
+
+#### SolidJS‑Specific TDD Workflow
+1. **Unit Tests** – Test pure functions and hooks with `bun test` and `vitest`‑style assertions.
+2. **Component Tests** – Render components with `@solidjs/testing-library`; simulate user events via `@testing-library/user-event`.
+3. **Snapshot Tests** – Optional `jest-snapshot` via `bun test --runInBand` for stable UI output.
+4. **End‑to‑End Tests** – Use `Playwright` to drive the full app against a running FastAPI backend.
+5. **Mocking** – Intercept network calls with `msw` in a `setupServer` hook.
+6. **Coverage & CI** – `bun test --coverage`; enforce thresholds in GitHub Actions.
+
+#### Cross‑Layer TDD Practices
+* **Shared Test Utilities** – Create a `tests/utils/` package with factories, fixtures, and helper functions.
+* **Parallel Execution** – Run backend and frontend tests in parallel jobs to reduce CI time.
+* **Test‑Driven Documentation** – Keep README snippets in sync with tests; use `pytest --doctest-glob` for Python docs.
+* **Error‑First Assertions** – Prefer explicit error messages in tests to aid debugging.
+* **Continuous Feedback** – Use GitHub Checks to surface failing tests immediately.
+
+#### Summary
+Adopting these TDD practices will:
+* Reduce regressions by catching bugs early.
+* Keep the codebase maintainable and well‑documented.
+* Align with 2025 tooling and community standards.
+* Provide a clear, repeatable workflow for both backend and frontend teams.
 
 ### Research Task 4: Integration Testing Strategies for FastAPI and SolidJS
 
