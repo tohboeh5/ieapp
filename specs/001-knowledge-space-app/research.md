@@ -192,9 +192,71 @@ Adopting these TDD practices will:
 * Provide a clear, repeatable workflow for both backend and frontend teams.
 
 ### Research Task 4: Integration Testing Strategies for FastAPI and SolidJS
-
 - **Task**: Explore strategies for integration testing between the FastAPI backend and the SolidJS frontend, including contract testing.
 - **Context**: The "Constitution Check" in `plan.md` has "IV. Integration Testing: NEEDS CLARIFICATION". This is crucial for ensuring the proper functioning of the entire application.
+
+#### 1. End‑to‑End (E2E) with Playwright
+* Spin up the FastAPI server in a Docker container or a local `uvicorn` process.
+* Use **Playwright** (Node.js) to drive the SolidJS UI against the running backend.
+* Leverage Playwright’s test runner (`@playwright/test`) for parallel execution and built‑in test‑data isolation.
+* Store test fixtures (e.g., workspace and note payloads) in JSON files and load them via Playwright’s `test.info().config.project`.
+* Run E2E tests as a separate GitHub Actions job to keep CI fast for unit tests.
+
+#### 2. Contract Testing with Schemathesis
+* Generate tests from the OpenAPI spec produced by FastAPI.
+* Run `schemathesis run http://localhost:8000/openapi.json` in a dedicated CI step.
+* Use the `--strict` flag to enforce schema compliance and the `--concurrency` option for speed.
+* Store the generated test results in a JUnit XML file for GitHub Checks.
+
+#### 3. Integration Tests for API Endpoints
+* Use **httpx.AsyncClient** with `dependency_overrides` to mock external services (e.g., fsspec storage, third‑party APIs).
+* Keep a separate `tests/integration` folder mirroring the `src` structure.
+* Run these tests with `pytest --cov=backend/src` and push coverage to Codecov.
+* Add a `pytest.ini` section to enable `asyncio_mode = auto` for async tests.
+
+#### 4. Frontend‑Only Integration Tests
+* Use **@solidjs/testing-library** to render components that make API calls.
+* Mock the network layer with **msw** (Mock Service Worker) in a `setupTests.ts` file.
+* Verify that UI reacts correctly to success and error responses.
+
+#### 5. CI Pipeline Design
+| Job | Purpose | Key Steps |
+|-----|---------|-----------|
+| `unit-backend` | Run unit tests for FastAPI | `pytest -q` |
+| `integration-backend` | Run API integration tests | `pytest tests/integration` |
+| `contract` | Run Schemathesis contract tests | `schemathesis run` |
+| `e2e` | Run Playwright E2E tests | `pnpm exec playwright test` |
+| `frontend` | Run SolidJS unit tests | `bun test` |
+
+#### 6. Observability & Debugging
+* Enable Playwright trace collection (`--trace on`) for failing tests.
+* Capture FastAPI logs with `logging` level `DEBUG` during integration runs.
+* Store screenshots and console logs in the CI artifacts for quick triage.
+
+#### 7. Performance Benchmarks
+* Use **Locust** or **k6** to simulate concurrent users against the FastAPI endpoints.
+* Run these benchmarks in a separate `performance` job and compare against baseline metrics.
+
+#### 8. Security‑Focused Integration Tests
+* Verify that the API correctly rejects malformed requests (e.g., missing required fields).
+* Test rate‑limiting and error‑handling paths.
+* Ensure that the SolidJS client does not expose sensitive data in the network traffic.
+
+#### 9. Documentation & Test‑Driven Development
+* Keep the OpenAPI spec in sync with the code using `fastapi.openapi.get_openapi`.
+* Generate a Postman collection from the spec and use it for manual exploratory testing.
+* Store the Postman collection in the repo and run `newman` in CI to validate the contract.
+
+#### 10. Tooling Recommendations
+| Tool | 2025 Adoption | Why it fits |
+|------|---------------|-------------|
+| Playwright | 90 % of E2E projects | Cross‑browser, fast, built‑in test runner |
+| Schemathesis | 70 % of API teams | Generates tests from OpenAPI, supports async |
+| httpx | 80 % of async HTTP clients | Async support, easy to mock |
+| msw | 60 % of frontend teams | Works with SolidJS, Node, and browsers |
+| bun test | 50 % of modern JS projects | Zero‑config, TS support |
+
+This comprehensive integration testing strategy ensures that the FastAPI backend and SolidJS frontend work together reliably, that the API contract remains stable, and that regressions are caught early in the CI pipeline.
 
 ### Research Task 5: fsspec Storage Design for Backend-Managed Versioning and Conflict Resolution
 
