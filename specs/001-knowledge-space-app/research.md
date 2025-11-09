@@ -278,9 +278,13 @@ This comprehensive integration testing strategy ensures that the FastAPI backend
 │   │   │   │       ├── {rev_id}.json  # full snapshot of the note at a revision
 │   │   │   │       └── index.json   # list of revisions with timestamps
 │   │   │   └── index.json          # list of note IDs + latest rev
-│   │   └── history/
-│   │       ├── {rev_id}.json      # snapshot of workspace state (note list)
-│   │       └── index.json          # list of workspace revisions
+│   │   ├── history/
+│   │   │   ├── {rev_id}.json      # snapshot of workspace state (note list)
+│   │   │   └── index.json          # list of workspace revisions
+│   │   ├── faiss.index            # FAISS vector index for semantic search
+│   │   ├── inverted_index.json    # term → note_id mapping for keyword search
+│   │   ├── search_cache.json      # cached query results
+│   │   └── index_meta.json        # index rebuild metadata
 │   └── index.json                  # global workspace list
 └── global.json                     # optional global config or audit log
 ```
@@ -301,6 +305,15 @@ This comprehensive integration testing strategy ensures that the FastAPI backend
 * **Optimistic concurrency**: Each write operation requires the caller to provide the *expected* latest revision ID. If the stored revision ID differs, the write is rejected with a `409 Conflict`.
 * **Three‑way merge**: For note edits, the backend can expose an endpoint that accepts the base revision ID, the local changes, and the server’s latest revision. The server applies a simple line‑based merge (e.g., using `difflib`) and returns the merged content or a conflict payload.
 * **Merge strategy configuration**: Store a per‑workspace merge strategy (`ours`, `theirs`, `manual`) in `meta.json`. The CLI can expose a flag to override the default.
+
+#### 4. Search support objects
+
+* **FAISS index file** – Store a local FAISS index (`faiss.index`) in the workspace root. The index contains vectors for each note’s `content.json`. The backend loads the index on startup and updates it incrementally when notes change.
+* **In‑memory inverted index** – Keep a dictionary mapping terms to note IDs for quick keyword lookup. Persist the inverted index as a JSON file (`inverted_index.json`) and reload it on startup.
+* **Cache layer** – Use an LRU cache (`functools.lru_cache`) to memoize recent search queries. Persist the cache state in a small file (`search_cache.json`) if needed.
+* **Index metadata** – Store a `index_meta.json` file containing the last rebuild timestamp and a hash of the index files to detect corruption.
+
+These objects integrate with the storage design, enabling efficient keyword and semantic search without external services.
 
 #### 4. fsspec integration
 
@@ -374,6 +387,16 @@ This comprehensive integration testing strategy ensures that the FastAPI backend
 
 - **Task**: Investigate strategies and tools for implementing efficient keyword search across notes stored solely via `fsspec` in JSON format, without relying on a traditional database (e.g., PostgreSQL).
 - **Context**: The application explicitly avoids a separate database, so search must be performed directly on the `fsspec`-managed files. This requires exploring techniques for indexing, querying, and retrieving relevant notes from a file-based store, considering performance for up to 1,000 notes per workspace.
+
+#### Search Strategies and Best Practices
+
+* **FAISS vector search** – Embed note text using a lightweight transformer (e.g., `sentence-transformers`). Store the resulting vectors in a local FAISS index file. Query with approximate nearest neighbors for semantic similarity. This is the primary search mechanism.
+* **In‑memory inverted index** – For simple keyword lookup, load the `content.json` of each note into a dictionary mapping terms to note IDs. Update incrementally on create/update/delete.
+* **Cache search results** – Cache the result set in an LRU cache (`functools.lru_cache`) keyed by the query string to avoid recomputation.
+* **Graceful degradation** – If the FAISS index is corrupted, fall back to the in‑memory inverted index. Log the incident and trigger a rebuild.
+* **Security** – Store the FAISS index and inverted index in the same protected directory as the notes with file permissions set to `600`.
+
+These minimal components provide efficient keyword and semantic search while keeping the architecture lightweight.
 
 ### Research Task 8: Comprehensive Error Handling and Resilience
 
