@@ -400,8 +400,19 @@ These minimal components provide efficient keyword and semantic search while kee
 
 ### Research Task 8: Comprehensive Error Handling and Resilience
 
-- **Task**: Develop a comprehensive error handling strategy for both the backend and frontend, covering `fsspec` storage issues, API errors, and unexpected application states. Research best practices for graceful degradation and user feedback.
-- **Context**: The `spec.md` mentions "Storage Unavailable" as an edge case, but a broader approach to system resilience is needed to ensure a robust user experience, especially with a file-based backend.
+
+## Best Practices for Error Handling & Resilience (T013)
+---
+1. **Layered exception handling** – Separate domain‑specific exceptions (e.g., `WorkspaceNotFoundError`) from framework exceptions (`HTTPException`). Translate domain errors to HTTP status codes in a single place (e.g., a FastAPI exception handler).
+2. **Idempotent operations** – Design write endpoints to be idempotent where possible. Use `PUT` for updates and `DELETE` with a safe‑delete flag to avoid accidental data loss.
+3. **Optimistic concurrency** – Require a `last_modified` or `revision_id` header on mutating requests. Reject the request with `409 Conflict` if the server’s revision differs.
+4. **Graceful degradation** – When `fsspec` storage is temporarily unavailable, return a `503 Service Unavailable` with a `Retry-After` header. Cache recent reads in memory to keep the UI responsive.
+5. **Circuit breaker pattern** – Wrap external calls (e.g., to a remote storage backend) in a circuit breaker that opens after a configurable number of failures, preventing cascading failures.
+6. **Structured logging** – Emit logs with consistent JSON structure, including `timestamp`, `level`, `message`, `trace_id`, and `error_type`. This enables automated alerting and post‑mortem analysis.
+7. **Health checks** – Expose `/health` and `/ready` endpoints that verify storage connectivity, database (if any), and critical service dependencies.
+8. **Retry with backoff** – For transient I/O errors, retry with exponential backoff and jitter. Use libraries like `tenacity` or `asyncio` retry utilities.
+9. **Metrics & alerting** – Instrument error rates per endpoint and per error type. Trigger alerts when thresholds exceed acceptable limits.
+10. **Documentation & testing** – Provide a `docs/error-handling.md` that explains the error model, status codes, and retry logic. Write unit tests that simulate failures (e.g., mock `fsspec` raising `OSError`) and assert correct HTTP responses.
 
 ### Research Task 9: Security Considerations for a No-Authentication, File-Based System
 
