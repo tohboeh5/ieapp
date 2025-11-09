@@ -418,3 +418,63 @@ These minimal components provide efficient keyword and semantic search while kee
 
 - **Task**: Identify potential security risks in a local, no-authentication, file-based knowledge space app. Research mitigation strategies, such as recommendations for network isolation, OS-level file permissions, and data integrity checks.
 - **Context**: The assumption of "No authentication is required" for home use necessitates understanding and addressing inherent security implications, even if the threat model is limited.
+
+#### 1. Threat Model & Assumptions
+
+*   **Local-only use**: The application is primarily intended for single-user, local machine use.
+*   **No authentication**: No user authentication or authorization mechanisms are built into the application itself.
+*   **Trusted environment**: The user's operating system and network environment are assumed to be reasonably secure.
+*   **Data sensitivity**: Notes may contain personal or sensitive information, requiring protection against unauthorized access or tampering.
+
+#### 2. Network Isolation Best Practices
+
+Even without explicit authentication, network-related risks exist if the application exposes any network services.
+
+*   **Localhost binding**: The FastAPI backend should *only* bind to `127.0.0.1` (localhost) by default. This prevents external network access to the API.
+    *   **Mitigation**: Configure `uvicorn` to run with `--host 127.0.0.1`.
+*   **Firewall rules**: Advise users to configure their operating system's firewall to block incoming connections to the application's port, even if bound to localhost, as an extra layer of defense.
+    *   **Mitigation**: Provide instructions for common OS firewalls (e.g., `ufw` on Linux, macOS Firewall settings).
+*   **Disable unnecessary services**: Ensure no other network-facing services are inadvertently started by the application.
+    *   **Mitigation**: Audit `pyproject.toml` and `package.json` for unexpected network dependencies.
+*   **Application whitelisting**: (Advanced) Recommend users consider application whitelisting to prevent unauthorized software from running on their system, which could potentially interact with the knowledge space app.
+
+#### 3. OS-Level File Permissions Best Practices
+
+Since data is stored directly on the file system, proper OS-level permissions are critical.
+
+*   **Dedicated data directory**: Store all workspace and note data in a dedicated, non-public directory within the user's home directory (e.g., `~/.ieapp/data`).
+    *   **Mitigation**: Ensure the application creates and uses this directory exclusively.
+*   **Restrictive permissions**: Set strict file system permissions on the data directory and its contents.
+    *   **Mitigation**:
+        *   `chmod 700 ~/.ieapp/data`: Owner has full access, no one else has any access.
+        *   `chmod 600 ~/.ieapp/data/*`: Owner can read/write files, no one else has any access.
+*   **Full disk encryption**: Recommend users enable full disk encryption (e.g., BitLocker on Windows, FileVault on macOS, LUKS on Linux) to protect data at rest in case of physical device theft.
+    *   **Mitigation**: Document this recommendation in `README.md` and `quickstart.md`.
+*   **Avoid shared drives**: Advise against storing the data directory on network shared drives or cloud-synced folders (e.g., Dropbox, Google Drive) unless the user fully understands the implications for data exposure and conflict resolution.
+*   **Secure deletion**: When notes or workspaces are "deleted," ensure the underlying files are securely erased (e.g., overwriting data multiple times) rather than just unlinked, if the threat model warrants it. (This might be overkill for a local-only app but worth noting).
+
+#### 4. Data Integrity Checks Best Practices
+
+Ensuring data has not been tampered with, either accidentally or maliciously, is crucial.
+
+*   **HMAC signing**: As outlined in Research Task 5, use HMAC (Hash-based Message Authentication Code) to sign each revision file.
+    *   **Mitigation**: Store a global, randomly generated HMAC key in a protected `global.json` file (e.g., `~/.ieapp/global.json` with `chmod 600`). Verify the signature on every read operation. If the signature is invalid, treat the data as corrupted.
+*   **Checksums/Hashes**: Store SHA-256 checksums of file contents in `meta.json` files.
+    *   **Mitigation**: On read, recompute the checksum and compare it to the stored value. Mismatches indicate data corruption.
+*   **Version control (internal)**: The append-only versioning strategy (Research Task 5) inherently provides a history that can be used to detect and potentially revert unauthorized changes.
+    *   **Mitigation**: Implement a "data recovery" or "history view" feature that allows users to inspect past revisions and restore them.
+*   **Audit trails**: Log all significant data modifications (create, update, delete) with timestamps and the operation performed.
+    *   **Mitigation**: Store these logs in a separate, append-only file within the data directory. This helps in forensic analysis if data integrity issues arise.
+*   **File Integrity Monitoring (FIM)**: (Advanced) For highly sensitive use cases, users could employ external FIM tools to monitor changes to the application's data directory.
+    *   **Mitigation**: Mention FIM as an advanced option in documentation.
+
+#### 5. Summary of Recommendations
+
+Given the no-authentication, local-only nature of the app, the primary security focus should be on:
+
+*   **Confining network exposure**: Binding to localhost and recommending firewall rules.
+*   **Robust OS-level file permissions**: Using a dedicated, strictly permissioned data directory.
+*   **Strong data integrity checks**: Implementing HMAC signing and checksums for all data revisions.
+*   **User education**: Clearly documenting these security considerations and recommendations in the `README.md` and `quickstart.md` files.
+
+These measures provide a reasonable level of security for the stated threat model, protecting against common local threats and accidental data corruption.
