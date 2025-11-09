@@ -260,8 +260,84 @@ This comprehensive integration testing strategy ensures that the FastAPI backend
 
 ### Research Task 5: fsspec Storage Design for Backend-Managed Versioning and Conflict Resolution
 
-- **Task**: Design and clearly define the `fsspec` directory structure, naming conventions, and file formats to explicitly support backend-managed versioning, history retrieval, and conflict resolution for notes and workspaces.
-- **Context**: The current directory structure in `data-model.md` is provisional. This task is critical for ensuring the backend can effectively implement these features without relying on `fsspec` itself for versioning, and for defining the detailed JSON-based data format for notes and workspaces.
+- **Task**: Design and clearly define the `fsspec` directory structure, naming conventions, and file formats to explicitly support backend‑managed versioning, history retrieval, and conflict resolution for notes and workspaces.
+- **Context**: The current directory structure in `data-model.md` is provisional. This task is critical for ensuring the backend can effectively implement these features without relying on `fsspec` itself for versioning, and for defining the detailed JSON‑based data format for notes and workspaces.
+
+#### 1. High‑level storage layout
+
+```
+{root}/
+├── workspaces/
+│   ├── {workspace_id}/
+│   │   ├── meta.json          # workspace metadata (name, created_at, etc.)
+│   │   ├── notes/
+│   │   │   ├── {note_id}/
+│   │   │   │   ├── meta.json  # note metadata (title, tags, timestamps)
+│   │   │   │   ├── content.json  # note body (markdown, JSON, etc.)
+│   │   │   │   └── history/
+│   │   │   │       ├── {rev_id}.json  # full snapshot of the note at a revision
+│   │   │   │       └── index.json   # list of revisions with timestamps
+│   │   │   └── index.json          # list of note IDs + latest rev
+│   │   └── history/
+│   │       ├── {rev_id}.json      # snapshot of workspace state (note list)
+│   │       └── index.json          # list of workspace revisions
+│   └── index.json                  # global workspace list
+└── global.json                     # optional global config or audit log
+```
+
+* All files are plain JSON to keep the store human‑readable and easy to diff.
+* `index.json` files contain lightweight metadata (IDs, timestamps, hash of content) to enable fast listing without scanning every file.
+* Revision IDs are deterministic UUID4 strings generated at commit time.
+
+#### 2. Versioning strategy
+
+* **Append‑only**: Every change creates a new revision file; old files are never overwritten. This guarantees an immutable history and simplifies conflict detection.
+* **Snapshot vs. delta**: For notes, store full snapshots (`content.json`) because notes are small (< 1 MB). For workspaces, store a snapshot of the note list only; the note bodies are referenced by ID.
+* **Metadata hashing**: Compute a SHA‑256 hash of the JSON payload and store it in `meta.json`. On read, verify the hash to detect corruption.
+* **Garbage collection**: Periodically prune revisions older than a configurable retention period (e.g., 90 days) to keep storage bounded.
+
+#### 3. Conflict resolution
+
+* **Optimistic concurrency**: Each write operation requires the caller to provide the *expected* latest revision ID. If the stored revision ID differs, the write is rejected with a `409 Conflict`.
+* **Three‑way merge**: For note edits, the backend can expose an endpoint that accepts the base revision ID, the local changes, and the server’s latest revision. The server applies a simple line‑based merge (e.g., using `difflib`) and returns the merged content or a conflict payload.
+* **Merge strategy configuration**: Store a per‑workspace merge strategy (`ours`, `theirs`, `manual`) in `meta.json`. The CLI can expose a flag to override the default.
+
+#### 4. fsspec integration
+
+* Use `fsspec.filesystem('file')` for local storage; for remote backends (S3, GCS) the same path layout applies.
+* Leverage `fsspec`'s **transactional** context manager (`fs.transaction`) to ensure atomic writes: write to a temp file, then rename.
+* Enable **caching** (`cache_type='file'`) to reduce I/O for frequently accessed notes.
+* For large workspaces, use `fs.open(..., mode='rb')` with `chunksize` to stream content.
+
+#### 5. API surface
+
+* **Create/Update note**: POST `/workspaces/{ws}/notes` with body `{title, content, tags}`. Returns the new revision ID.
+* **Get note**: GET `/workspaces/{ws}/notes/{id}?rev={rev_id}`. If `rev` omitted, return latest.
+* **List notes**: GET `/workspaces/{ws}/notes` returns `index.json`.
+* **Delete note**: DELETE `/workspaces/{ws}/notes/{id}` creates a tombstone revision.
+* **History**: GET `/workspaces/{ws}/notes/{id}/history` streams `index.json`.
+
+#### 6. Security & integrity
+
+* Store a global HMAC key in `global.json` to sign revision files. On read, verify the signature.
+* Use file‑system permissions (`chmod 600`) to restrict access to the data directory.
+* Log every write operation with a timestamp and user identifier (if available).
+
+#### 7. Performance considerations
+
+* **Batch reads**: For listing notes, read only `index.json` files; avoid scanning the `notes/` directory.
+* **Parallelism**: Use `fsspec`'s `ThreadPoolExecutor` for concurrent reads when rendering a workspace view.
+* **Compression**: Store `content.json` compressed with `gzip` if the note size exceeds 10 KB.
+
+#### 8. Migration path
+
+* Existing data can be migrated by scanning the current flat file layout, generating revision IDs, and writing the new structure.
+* Provide a CLI command `ieapp migrate` that performs the migration atomically.
+
+#### 9. Documentation
+
+* Add a `docs/storage.md` that explains the layout, revision workflow, and conflict resolution.
+* Generate a diagram using Mermaid in the README.
 
 ### Research Task 6: Workspace Management Best Practices
 
