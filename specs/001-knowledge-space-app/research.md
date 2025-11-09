@@ -339,10 +339,36 @@ This comprehensive integration testing strategy ensures that the FastAPI backend
 * Add a `docs/storage.md` that explains the layout, revision workflow, and conflict resolution.
 * Generate a diagram using Mermaid in the README.
 
-### Research Task 6: Workspace Management Best Practices
+## Research Task 6: Workspace Management Best Practices
 
-- **Task**: Research best practices for implementing workspace management in a multi-document application, including considerations for data isolation, access patterns, and efficient listing/deletion.
-- **Context**: The introduction of the `Workspace` entity in `spec.md` and `data-model.md` requires a robust approach to managing these collections of notes.
+**Task**: Research best practices for implementing workspace management in a multi‑document application, including considerations for data isolation, access patterns, and efficient listing/deletion.
+**Context**: The introduction of the `Workspace` entity in `spec.md` and `data-model.md` requires a robust approach to managing these collections of notes.
+
+### Key Principles
+
+1. **Data isolation** – Each workspace should be a self‑contained namespace. All files, metadata, and revision histories are stored under a dedicated directory (e.g., `workspaces/{workspace_id}`) to prevent accidental cross‑workspace contamination.
+2. **Optimized listing** – Use lightweight index files (`index.json`) that contain only IDs, timestamps, and a hash of the latest revision. This allows O(1) listing without scanning the entire file tree.
+3. **Atomic operations** – Leverage `fsspec`’s transactional context manager (`fs.transaction`) to write new revisions atomically. This guarantees that a workspace’s state never becomes partially updated.
+4. **Versioning strategy** – Adopt an append‑only, immutable snapshot model. Every change creates a new revision file; old revisions are never overwritten. This simplifies conflict detection and auditability.
+5. **Efficient deletion** – Instead of physically deleting files, mark a workspace or note as *tombstoned* in its `meta.json`. Physical cleanup can be performed by a background job that respects a retention policy.
+6. **Scalable access patterns** – For read‑heavy workloads, cache the index and the most recent revision in memory or a local LRU cache. Use `fsspec`’s `cache_type='file'` for disk‑backed caching.
+7. **Security & integrity** – Sign every revision with a HMAC key stored in a protected `global.json`. Verify signatures on read to detect tampering.
+8. **Metadata consistency** – Store a `last_modified` timestamp and a `revision_id` in `meta.json`. Validate that the `revision_id` matches the latest file in the history directory.
+9. **Graceful degradation** – If the storage backend becomes unavailable, return a clear error message and fall back to an in‑memory cache for read‑only operations.
+10. **Documentation & tooling** – Provide a `docs/workspace.md` that explains the directory layout, the API contract, and the cleanup policy.
+
+### Suggested Implementation Steps
+
+1. **Directory layout** – Follow the structure outlined in Task 5 (fsspec storage design). Each workspace has its own `meta.json`, `notes/`, and `history/` directories.
+2. **Index files** – Implement `index.json` at the workspace level and within the `notes/` directory. The index contains an array of `{id, title, last_modified, revision_id}` objects.
+3. **Atomic writes** – Wrap every create/update/delete operation in `fs.transaction` to ensure that either the entire operation succeeds or the filesystem state remains unchanged.
+4. **Tombstone handling** – Add a `deleted: true` flag in `meta.json`. The API should filter out tombstoned workspaces during listing.
+5. **Background cleanup** – Schedule a nightly job that scans `history/` directories and removes revisions older than a configurable retention period (e.g., 90 days).
+6. **Caching layer** – Use `functools.lru_cache` or a small in‑memory dict to cache the most recent revision data for each workspace.
+7. **Error handling** – Wrap all fsspec interactions in try/except blocks that translate `OSError` and `FileNotFoundError` into domain‑specific exceptions (`StorageUnavailableError`, `WorkspaceNotFoundError`).
+8. **Testing** – Write unit tests that simulate concurrent writes to the same workspace to verify optimistic concurrency control.
+9. **Documentation** – Update `docs/workspace.md` and add a Mermaid diagram of the directory layout.
+10. **CI integration** – Add a GitHub Actions job that runs the workspace tests on every push.
 
 ### Research Task 7: Implementing Search with fsspec-only Storage
 
