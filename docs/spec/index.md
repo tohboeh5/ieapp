@@ -51,11 +51,9 @@ rewriting the requirement to fit the available proof.
 
 ## Migrated domain authority
 
-Foundation, Policy, Search, Entry, Form, Indexer, API, Asset, Frontend, E2E, Integrity, and the
-Storage Space foundation, authenticated creation contract, plus
-connector/access/routing/preference slice are
-represented in the canonical Mitase records at `docs/mitase` for the current
-dogfood slice. These records are the semantic source of truth for the migrated
+Foundation, Policy, Search, Entry, Form, Indexer, API, Asset, Frontend, E2E,
+Integrity, Operations, Security, and Storage are represented in the canonical
+Mitase records at `docs/mitase` for the current dogfood slice. These records are the semantic source of truth for the migrated
 domains; their corresponding legacy Foundation, Policy, Requirement, and
 Feature YAML are migration evidence only and cannot override the canonical
 representation. The API-specific legacy requirement registry is retired and is
@@ -83,12 +81,11 @@ Frontend graph at `docs/mitase/requirements/frontend.yaml` is the only semantic
 authority for routes, components, interaction surfaces, API clients, and exact
 Frontend verification evidence.
 The legacy Integrity requirement registry is likewise retired and no longer
-part of Mitase's declared inventory. The migrated Storage Space foundation
-records are likewise no longer semantic authority in their legacy registry. The
-duplicate-create conflict
-contract is now canonical; remaining Storage records continue to be migrated in
-focused slices. Changed-ownership enforcement remains staged
-until it can be scoped safely to the migrated slice.
+part of Mitase's declared inventory. The legacy Storage requirement registry is
+likewise retired; the canonical Storage graph at
+`docs/mitase/requirements/storage.yaml` is the only semantic authority for
+Space storage, creation, connector, listing, layout, DerivedRelation, and
+Knowledge-compatibility behavior.
 The legacy Operations requirement registry is likewise retired and no longer
 part of Mitase's declared inventory. The canonical Operations graph at
 `docs/mitase/requirements/ops.yaml` is the only semantic authority for the
