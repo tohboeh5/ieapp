@@ -126,7 +126,7 @@ requirements:
 
   - id: REQ-OPS-005
     title: Repository Lint and Hygiene Gates
-    description: Root checks cover formatting, Rust and Deno linting, architecture and OpenAPI drift, and configured repository artifact hygiene.
+    description: Root checks cover formatting, Rust and Deno linting, architecture and OpenAPI drift, and configured repository artifact hygiene. Historical alternate-runtime test strictness is superseded by these workspace gates (legacy REQ-OPS-033).
     priority: medium
     status: implemented
     criteria:
@@ -771,7 +771,7 @@ requirements:
 
   - id: REQ-OPS-019
     title: Explicit Root Mise Task Surface
-    description: All supported developer entrypoints are declared in the root mise.toml; package-scoped mise tasks are not part of the current repository.
+    description: All supported developer entrypoints are declared in the root mise.toml; package-scoped mise tasks are not part of the current repository. Historical mandatory local hook installation is superseded by this surface and the hosted required checks (legacy REQ-OPS-032).
     priority: medium
     status: implemented
     criteria:
