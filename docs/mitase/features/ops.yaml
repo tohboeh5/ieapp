@@ -647,6 +647,50 @@ features:
               - kind: evidences
                 anchor: REQ-OPS-015#criterion.production-authentication
 
+      - id: migrated-ops-030-031
+        role: evidence
+        facet: hosted-gates
+        responsibility: Connect the current merge workflow, post-publication release gate, and hosted workflow Action references to the pre-merge quick-start and immutable-pinning contracts. Pre-merge release execution remains planned and SHA enforcement remains owned by repository review.
+        targets:
+          - id: merge-workflow
+            adapter: declared
+            path: .github/workflows/ci.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-030#criterion.pre-merge-release-verification
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: published-quickstart-workflow
+            adapter: declared
+            path: .github/workflows/release-publish.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-030#criterion.pre-merge-release-verification
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: codeql-workflow
+            adapter: declared
+            path: .github/workflows/codeql.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: pr-gate-workflow
+            adapter: declared
+            path: .github/workflows/pr-require-close-issue.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: candidate-workflow
+            adapter: declared
+            path: .github/workflows/release-candidate.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
       - id: release-contracts
         role: contract-source
         facet: release-promotion

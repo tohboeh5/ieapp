@@ -1204,6 +1204,89 @@ requirements:
                 covers: [FEAT-OPS-001#binding.migrated-ops-025-028/target.helm-chart, FEAT-OPS-001#binding.migrated-ops-025-028/target.helm-values, FEAT-OPS-001#binding.migrated-ops-025-028/target.helm-deployment, FEAT-OPS-001#binding.migrated-ops-025-028/target.helm-pvc]
                 runner: { runner: deno-test-file, arguments: { file: tools/release_contract_test.ts, test: 'REQ-OPS-028: repository-owned Helm chart keeps the runtime contract' } }
 
+  - id: REQ-OPS-030
+    title: Pre-Merge Release Quick-Start Verification
+    description: A required hosted pre-merge release-like artifact test is desired; current merge CI runs builds and E2E smoke but not the full release quick start.
+    priority: medium
+    status: planned
+    criteria:
+      - id: pre-merge-release-verification
+        kind: quality
+        statement: A future required pre-merge gate should exercise a release-like artifact check while merge and push validation retain build and E2E smoke coverage; the current merge workflow does not run the full published release quick start.
+        governed_by: [POL-008#rule.governance]
+    bindings:
+      - id: pre-merge-release-evidence
+        role: evidence
+        facet: planned-work
+        responsibility: Record the current merge workflow and the post-publication release quick-start gate as the planned boundary without claiming that a required pre-merge release-like check already exists.
+        targets:
+          - id: merge-workflow
+            adapter: declared
+            path: .github/workflows/ci.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-030#criterion.pre-merge-release-verification
+          - id: published-quickstart-workflow
+            adapter: declared
+            path: .github/workflows/release-publish.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-030#criterion.pre-merge-release-verification
+
+  - id: REQ-OPS-031
+    title: Immutable GitHub Action Pinning
+    description: External GitHub Actions are pinned to full commit SHAs.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: pinned-action-references
+        kind: quality
+        statement: External GitHub Action references in the hosted workflows use full commit SHAs rather than floating tags or branches.
+        governed_by: [POL-008#rule.governance]
+    bindings:
+      - id: pinned-action-evidence
+        role: evidence
+        facet: hosted-gate-contract
+        responsibility: Connect the hosted workflows that declare external Action references as generic repository evidence. SHA enforcement remains owned by repository review and hosted workflow execution.
+        targets:
+          - id: ci-workflow
+            adapter: declared
+            path: .github/workflows/ci.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: codeql-workflow
+            adapter: declared
+            path: .github/workflows/codeql.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: pr-gate-workflow
+            adapter: declared
+            path: .github/workflows/pr-require-close-issue.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: candidate-workflow
+            adapter: declared
+            path: .github/workflows/release-candidate.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+          - id: publish-workflow
+            adapter: declared
+            path: .github/workflows/release-publish.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-031#criterion.pinned-action-references
+
   - id: REQ-OPS-044
     title: Repository-Native Candidate Promotion
     description: Release preparation uses version.txt as the canonical prepared-version authority, records verified candidate identity from exact manifest bytes, and promotes only matching candidate artifacts without rebuilding or repackaging.
