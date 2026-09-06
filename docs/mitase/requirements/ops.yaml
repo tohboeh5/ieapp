@@ -1447,6 +1447,37 @@ requirements:
               - kind: evidences
                 anchor: REQ-OPS-041#criterion.main-surface-guidance
 
+  - id: REQ-OPS-042
+    title: Script-Driven Pull Request Creation
+    description: A repository-owned script should validate a pull-request body before invoking GitHub tooling. No such script is present.
+    priority: medium
+    status: planned
+    criteria:
+      - id: pr-body-validation-script
+        kind: quality
+        statement: A future repository-owned script should validate a pull-request body before GitHub tooling is invoked; the current repository provides the pull-request template and closing-issue validation without that script.
+        governed_by: [POL-008#rule.governance]
+    bindings:
+      - id: pr-script-planned-surface
+        role: evidence
+        facet: planned-work
+        responsibility: Record the pull-request template and closing-issue workflow as the existing planning surface without claiming that the requested validation script exists.
+        targets:
+          - id: pull-request-template
+            adapter: declared
+            path: .github/pull_request_template.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-042#criterion.pr-body-validation-script
+          - id: close-issue-workflow
+            adapter: declared
+            path: .github/workflows/pr-require-close-issue.yml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-042#criterion.pr-body-validation-script
+
   - id: REQ-OPS-044
     title: Repository-Native Candidate Promotion
     description: Release preparation uses version.txt as the canonical prepared-version authority, records verified candidate identity from exact manifest bytes, and promotes only matching candidate artifacts without rebuilding or repackaging.

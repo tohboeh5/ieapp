@@ -398,16 +398,12 @@ fn docs_current_stack_check() -> Result<()> {
             }
         }
     }
-    let deferred_requirements = [
-        (
-            "docs/spec/requirements/security.yaml",
-            ["REQ-SEC-009"].as_slice(),
-        ),
-        (
-            "docs/spec/requirements/ops.yaml",
-            ["REQ-OPS-015"].as_slice(),
-        ),
-    ];
+    // The Operations deferred-capability record (REQ-OPS-015) is canonical in
+    // docs/mitase now; only not-yet-migrated legacy registries are checked here.
+    let deferred_requirements = [(
+        "docs/spec/requirements/security.yaml",
+        ["REQ-SEC-009"].as_slice(),
+    )];
     for (path, ids) in deferred_requirements {
         let text = fs::read_to_string(path).with_context(|| format!("read {path}"))?;
         for block in text.split("- set_id:").skip(1) {

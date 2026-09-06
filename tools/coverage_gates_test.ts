@@ -407,7 +407,7 @@ Deno.test("REQ-OPS-021: frontend coverage remains a canonical test contract", as
   const rootDeno = await Deno.readTextFile("deno.json");
   const mise = await Deno.readTextFile("mise.toml");
   const requirements = await Deno.readTextFile(
-    "docs/spec/requirements/ops.yaml",
+    "docs/mitase/requirements/ops.yaml",
   );
 
   assertEquals(
@@ -453,8 +453,8 @@ Deno.test("REQ-OPS-021: frontend coverage remains a canonical test contract", as
     ),
     [
       "status: implemented",
-      "verification: traced",
-      "- file: tools/coverage_gates_test.ts",
+      "id: frontend-coverage-gate",
+      "tools/coverage_gates_test.ts",
     ],
     "REQ-OPS-021",
   );
@@ -465,7 +465,7 @@ Deno.test("REQ-OPS-024: docsite coverage remains a canonical test contract", asy
   const rootDeno = await Deno.readTextFile("deno.json");
   const mise = await Deno.readTextFile("mise.toml");
   const requirements = await Deno.readTextFile(
-    "docs/spec/requirements/ops.yaml",
+    "docs/mitase/requirements/ops.yaml",
   );
 
   assertEquals(
@@ -509,16 +509,16 @@ Deno.test("REQ-OPS-024: docsite coverage remains a canonical test contract", asy
     ),
     [
       "status: implemented",
-      "verification: traced",
-      "- file: tools/coverage_gates_test.ts",
+      "id: docsite-coverage-gate",
+      "tools/coverage_gates_test.ts",
     ],
     "REQ-OPS-024",
   );
 });
 
 function requirementBlock(source: string, id: string): string {
-  const start = source.indexOf(`  id: ${id}`);
+  const start = source.indexOf(`  - id: ${id}`);
   assertEquals(start >= 0, true, `missing requirement ${id}`);
-  const end = source.indexOf("\n- set_id:", start);
+  const end = source.indexOf("\n  - id:", start);
   return source.slice(start, end === -1 ? undefined : end);
 }
