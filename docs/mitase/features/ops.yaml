@@ -684,6 +684,15 @@ features:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-031#criterion.pinned-action-references
+              - kind: evidences
+                anchor: REQ-OPS-042#criterion.pr-body-validation-script
+          - id: pull-request-template
+            adapter: declared
+            path: .github/pull_request_template.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-042#criterion.pr-body-validation-script
           - id: candidate-workflow
             adapter: declared
             path: .github/workflows/release-candidate.yml

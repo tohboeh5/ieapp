@@ -11,20 +11,16 @@ authorization remains governed by the authoritative Security requirement until
 that domain is migrated. Any remaining verification gap remains explicit rather
 than being inferred from the existence of a binding.
 
-Operations requirements `REQ-OPS-001` through `REQ-OPS-028`, `REQ-OPS-030`,
-`REQ-OPS-031`, `REQ-OPS-034`, `REQ-OPS-035`, `REQ-OPS-036`, `REQ-OPS-037`,
-`REQ-OPS-040`, and `REQ-OPS-041`, together with the inserted `REQ-OPS-043` and `REQ-OPS-044`
-gates, are now canonical in `docs/mitase/requirements/ops.yaml`. The superseded
-hook-installation and alternate-runtime records (`REQ-OPS-032`, `REQ-OPS-033`)
-are absorbed by the canonical root task surface and workspace quality gates and
-carry no separate canonical requirement.
-The corresponding records in the legacy `requirements/ops.yaml` file are
-read-only migration evidence, not a second semantic authority; later
-Operations requirements remain there until their focused Mitase slices are
-reviewed. The canonical graph connects generic guides, workflows, settings,
-registries, release surfaces, deployment defaults, and exact frontend,
-docsite, repository-gate, and compatibility evidence while preserving planned
-work and unverified completeness as explicit gaps.
+The legacy Operations requirement registry at `requirements/ops.yaml` is
+retired and is no longer included in Mitase's declared inventory. The canonical
+Operations requirements at `docs/mitase/requirements/ops.yaml` are the only
+semantic authority for the Operations domain: `REQ-OPS-001` through
+`REQ-OPS-028`, `REQ-OPS-030`, `REQ-OPS-031`, `REQ-OPS-034` through
+`REQ-OPS-037`, `REQ-OPS-040` through `REQ-OPS-042`, and the inserted
+`REQ-OPS-043` and `REQ-OPS-044` gates. The superseded `REQ-OPS-032` and
+`REQ-OPS-033` records are absorbed by the canonical root task surface and
+workspace quality gates and carry no separate canonical requirement. Planned
+work and unverified completeness remain explicit gaps in the canonical graph.
 
 The legacy API requirement registry at `requirements/api.yaml` is retired and
 is no longer included in Mitase's declared inventory. The canonical API
