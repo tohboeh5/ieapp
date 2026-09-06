@@ -1287,6 +1287,70 @@ requirements:
               - kind: evidences
                 anchor: REQ-OPS-031#criterion.pinned-action-references
 
+  - id: REQ-OPS-034
+    title: Direct-Process E2E Cleanup
+    description: Direct-process E2E scripts stop only the processes they started and fail clearly on occupied ports.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: owned-process-cleanup
+        kind: quality
+        statement: The direct-process E2E runner stops only its started backend and frontend processes and reports occupied ports as explicit errors instead of killing unrelated processes.
+        governed_by: [POL-005#rule.governance, POL-008#rule.governance]
+    bindings:
+      - id: e2e-cleanup-verification
+        role: verification
+        facet: repository-test
+        responsibility: Verify the owned-process cleanup and occupied-port error boundary through the exact workspace test.
+        targets:
+          - id: e2e-cleanup-test
+            adapter: typescript
+            path: tools/workspace_test.ts
+            selector: { kind: test, name: 'REQ-OPS-034: direct-process E2E cleanup stops only owned processes' }
+            claims:
+              - kind: verifies
+                criterion: REQ-OPS-034#criterion.owned-process-cleanup
+                covers: [FEAT-OPS-001#binding.migrated-ops-034-035/target.e2e-runner]
+                runner: { runner: deno-test-file, arguments: { file: tools/workspace_test.ts, test: 'REQ-OPS-034: direct-process E2E cleanup stops only owned processes' } }
+
+  - id: REQ-OPS-035
+    title: Container Runtime Hardening
+    description: Container and Helm defaults run as non-root, drop capabilities, and protect persistent storage.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: non-root-runtime
+        kind: security
+        statement: The runtime image and Helm defaults run as a non-root user, disallow privilege escalation, drop all Linux capabilities, and keep the persistent data volume owned by the runtime user.
+        governed_by: [POL-003#rule.governance, POL-011#rule.governance]
+    bindings:
+      - id: runtime-hardening-verification
+        role: verification
+        facet: repository-test
+        responsibility: Verify the non-root runtime image user through the exact workspace test. The Helm non-root and capability-drop half is recorded as evidence below and remains pinned by the repository-owned Helm contract test connected to REQ-OPS-028.
+        targets:
+          - id: runtime-hardening-test
+            adapter: typescript
+            path: tools/workspace_test.ts
+            selector: { kind: test, name: 'REQ-OPS-035: container defaults run non-root with dropped capabilities' }
+            claims:
+              - kind: verifies
+                criterion: REQ-OPS-035#criterion.non-root-runtime
+                covers: [FEAT-OPS-001#binding.migrated-ops-034-035/target.runtime-image]
+                runner: { runner: deno-test-file, arguments: { file: tools/workspace_test.ts, test: 'REQ-OPS-035: container defaults run non-root with dropped capabilities' } }
+      - id: runtime-hardening-evidence
+        role: evidence
+        facet: deployment
+        responsibility: Connect the Helm security defaults as generic deployment evidence for the hardening criterion. Helm execution remains external repository tooling.
+        targets:
+          - id: helm-security-defaults
+            adapter: declared
+            path: charts/ugoite/values.yaml
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-035#criterion.non-root-runtime
+
   - id: REQ-OPS-044
     title: Repository-Native Candidate Promotion
     description: Release preparation uses version.txt as the canonical prepared-version authority, records verified candidate identity from exact manifest bytes, and promotes only matching candidate artifacts without rebuilding or repackaging.
