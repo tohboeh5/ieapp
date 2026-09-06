@@ -311,6 +311,8 @@ inventory:
             - scripts/verify-release-container-quickstart.sh
             - Dockerfile
             - e2e/scripts/run-e2e.sh
+            - CONTRIBUTING.md
+            - docs/guide/start/browser-first-entry.md
             - tools/knowledge_compatibility.ts
             - tools/knowledge_compatibility_test.ts
             - tools/coverage_gates_test.ts

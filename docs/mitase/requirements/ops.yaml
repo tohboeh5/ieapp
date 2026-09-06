@@ -1351,6 +1351,102 @@ requirements:
               - kind: evidences
                 anchor: REQ-OPS-035#criterion.non-root-runtime
 
+  - id: REQ-OPS-036
+    title: Contributor Workflow Guide
+    description: Contributor docs explain architecture boundaries, spec updates, requirement traceability, and current root gates.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: contributor-guidance
+        kind: quality
+        statement: The contributor guide documents responsibility boundaries, the specification update path, requirement-to-test traceability, and the current root development and quality gates.
+        governed_by: [POL-008#rule.governance, POL-013#rule.governance]
+    bindings:
+      - id: contributor-guidance-evidence
+        role: evidence
+        facet: contributor-guide
+        responsibility: Connect the contributor guide as generic documentation evidence for the workflow contract. Guide completeness beyond the current sections remains an explicit non-goal of this slice.
+        targets:
+          - id: contributing-guide
+            adapter: declared
+            path: CONTRIBUTING.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-036#criterion.contributor-guidance
+
+  - id: REQ-OPS-037
+    title: Browser Walkthrough Form Terminology
+    description: The browser walkthrough uses Form terminology.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: form-terminology
+        kind: quality
+        statement: The browser first-entry guide describes entries through Form-defined fields and the Forms surface rather than a competing vocabulary.
+        governed_by: [POL-013#rule.governance]
+    bindings:
+      - id: form-terminology-evidence
+        role: evidence
+        facet: user-guide
+        responsibility: Connect the browser first-entry guide as generic documentation evidence for the terminology contract.
+        targets:
+          - id: first-entry-guide
+            adapter: declared
+            path: docs/guide/start/browser-first-entry.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-037#criterion.form-terminology
+
+  - id: REQ-OPS-040
+    title: Browser Walkthrough Field Types
+    description: The browser walkthrough explains short structured fields versus longer Markdown fields.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: field-type-guidance
+        kind: quality
+        statement: The browser first-entry guide explains when to use short structured fields and when to use longer Markdown fields.
+        governed_by: [POL-013#rule.governance]
+    bindings:
+      - id: field-type-evidence
+        role: evidence
+        facet: user-guide
+        responsibility: Connect the browser first-entry guide as generic documentation evidence for the field-type contract.
+        targets:
+          - id: first-entry-guide
+            adapter: declared
+            path: docs/guide/start/browser-first-entry.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-040#criterion.field-type-guidance
+
+  - id: REQ-OPS-041
+    title: Browser Walkthrough Main Surfaces
+    description: The browser walkthrough explains Dashboard, Entries, Forms, Search, SQL, Assets, and Settings at a high level.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: main-surface-guidance
+        kind: quality
+        statement: The browser first-entry guide surveys the main browser surfaces at a high level.
+        governed_by: [POL-013#rule.governance]
+    bindings:
+      - id: main-surface-evidence
+        role: evidence
+        facet: user-guide
+        responsibility: Connect the browser first-entry guide as generic documentation evidence. The guide currently surveys Dashboard, Entries, Forms, Search, SQL, and Settings; an explicit Assets surface explanation remains an evidence gap rather than a narrowed contract.
+        targets:
+          - id: first-entry-guide
+            adapter: declared
+            path: docs/guide/start/browser-first-entry.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-041#criterion.main-surface-guidance
+
   - id: REQ-OPS-044
     title: Repository-Native Candidate Promotion
     description: Release preparation uses version.txt as the canonical prepared-version authority, records verified candidate identity from exact manifest bytes, and promotes only matching candidate artifacts without rebuilding or repackaging.
