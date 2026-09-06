@@ -67,7 +67,7 @@ features:
                 anchor: REQ-OPS-004#criterion.milestone-status
           - id: taxonomy-registry
             adapter: declared
-            path: docs/spec/features/features.yaml
+            path: docs/mitase/policies/policies.yaml
             selector: { kind: file }
             claims:
               - kind: documents
@@ -75,11 +75,11 @@ features:
       - id: registries
         role: implementation
         facet: documentation
-        responsibility: Keep the remaining governance registry artifacts connected as exact implementation targets. Legacy requirement registries are retired; the retirement-guard test proves none remain.
+        responsibility: Keep the canonical Mitase policy registry connected as the exact implementation target for taxonomy integrity. Legacy registries are retired; the retirement-guard test proves none remain.
         targets:
           - id: taxonomy-registry
             adapter: declared
-            path: docs/spec/features/features.yaml
+            path: docs/mitase/policies/policies.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
