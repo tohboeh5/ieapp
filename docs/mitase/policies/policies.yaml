@@ -282,16 +282,11 @@ policies:
       - id: design-references
         role: documentation
         facet: design-reference
-        responsibility: Preserve the data-model, core-story, and UI references for typed Entry and Form schema governance.
+        responsibility: Preserve the data-model and UI references for typed Entry and Form schema governance. Legacy story files are retired; user intent is owned by the canonical requirement graph.
         targets:
           - id: data-model-schema
             adapter: declared
             path: docs/architecture/data-model/file-schemas.yaml
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-007#rule.governance }]
-          - id: stories-core
-            adapter: declared
-            path: docs/spec/stories/core.yaml
             selector: { kind: file }
             claims: [{ kind: documents, anchor: POL-007#rule.governance }]
           - id: ui-pages
@@ -497,18 +492,8 @@ policies:
       - id: design-references
         role: documentation
         facet: design-reference
-        responsibility: Preserve the feature registry, advanced-story, and REST references for Search and Form knowledge operations.
+        responsibility: Preserve the REST references for Search and Form knowledge operations. Legacy feature-index and story files are retired; their semantics are owned by the canonical Mitase graphs.
         targets:
-          - id: features-registry
-            adapter: declared
-            path: docs/spec/features/index.md
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-012#rule.governance }]
-          - id: stories-advanced
-            adapter: declared
-            path: docs/spec/stories/advanced.yaml
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-012#rule.governance }]
           - id: api-rest
             adapter: declared
             path: docs/architecture/api/rest.md
@@ -539,26 +524,11 @@ policies:
       - id: design-references
         role: documentation
         facet: design-reference
-        responsibility: Preserve the core, advanced, metrics, and experimental references for specification-first product iteration.
+        responsibility: Preserve the product-metrics reference for specification-first product iteration. Legacy story files are retired; iteration intent is owned by the canonical requirement graph.
         targets:
-          - id: stories-core
-            adapter: declared
-            path: docs/spec/stories/core.yaml
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-013#rule.governance }]
-          - id: stories-advanced
-            adapter: declared
-            path: docs/spec/stories/advanced.yaml
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-013#rule.governance }]
           - id: product-metrics
             adapter: declared
             path: docs/architecture/product/success-metrics.md
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-013#rule.governance }]
-          - id: stories-experimental
-            adapter: declared
-            path: docs/spec/stories/experimental.yaml
             selector: { kind: file }
             claims: [{ kind: documents, anchor: POL-013#rule.governance }]
   - id: POL-014
