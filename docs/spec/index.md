@@ -93,6 +93,10 @@ The legacy Operations requirement registry is likewise retired and no longer
 part of Mitase's declared inventory. The canonical Operations graph at
 `docs/mitase/requirements/ops.yaml` is the only semantic authority for the
 Operations domain.
+The legacy Security requirement registry is likewise retired and no longer
+part of Mitase's declared inventory. The canonical Security graph at
+`docs/mitase/requirements/security.yaml` is the only semantic authority for the
+Security domain.
 Other requirement and feature domains remain authoritative in their existing
 `docs/spec` records until migrated. The retired Asset requirement registry is
 not retained as a second semantic source; its canonical replacement is the
