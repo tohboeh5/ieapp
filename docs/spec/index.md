@@ -54,9 +54,8 @@ rewriting the requirement to fit the available proof.
 Foundation, Policy, Search, Entry, Form, Indexer, API, Asset, Frontend, E2E,
 Integrity, Operations, Security, and Storage are represented in the canonical
 Mitase records at `docs/mitase` for the current dogfood slice. These records are the semantic source of truth for the migrated
-domains; their corresponding legacy Foundation, Policy, Requirement, and
-Feature YAML are migration evidence only and cannot override the canonical
-representation. The API-specific legacy requirement registry is retired and is
+domains; the retired legacy Foundation, Policy, and Requirement YAML registries
+are removed and cannot override the canonical representation. The API-specific legacy requirement registry is retired and is
 no longer part of Mitase's declared inventory. The canonical API graph is the
 only semantic authority for that domain. Frontend legacy requirement YAML is
 likewise retired and no longer part of Mitase's declared inventory. The Asset
