@@ -691,6 +691,25 @@ features:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-031#criterion.pinned-action-references
+      - id: migrated-ops-034-035
+        role: implementation
+        facet: runtime-and-e2e
+        responsibility: Connect the direct-process E2E runner, runtime image, and Helm security defaults to the exact workspace tests that verify their cleanup and hardening contracts.
+        targets:
+          - id: e2e-runner
+            adapter: declared
+            path: e2e/scripts/run-e2e.sh
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-OPS-034#criterion.owned-process-cleanup
+          - id: runtime-image
+            adapter: declared
+            path: Dockerfile
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-OPS-035#criterion.non-root-runtime
       - id: release-contracts
         role: contract-source
         facet: release-promotion
