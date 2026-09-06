@@ -894,6 +894,36 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-SEC-016#criterion.protected-link-management
+          - id: device-grants
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-015#criterion.resource-bound-credentials
+      - id: cli
+        role: implementation
+        facet: cli
+        responsibility: Keep remote CLI endpoint transport safety and device-authentication credential handling behind the exact CLI configuration and auth-command surfaces.
+        targets:
+          - id: endpoint-config
+            adapter: rust
+            path: crates/ugoite-cli/src/config.rs
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-011#criterion.loopback-only-cleartext
+              - kind: satisfies
+                criterion: REQ-SEC-011#criterion.insecure-endpoint-refusal
+          - id: device-auth
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/auth.rs
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-015#criterion.device-authorization-flow
+              - kind: satisfies
+                criterion: REQ-SEC-015#criterion.resource-bound-credentials
       - id: client
         role: implementation
         facet: frontend
@@ -979,7 +1009,30 @@ features:
             adapter: openapi
             path: crates/ugoite-server/src/openapi.json
             selector: { kind: operation, method: post, path: /auth/passkeys/bootstrap/finish }
+          - id: device-authorization
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: /oauth/device/authorization }
+          - id: device-approve
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: /oauth/device/approve }
     contracts:
+      - id: device-authentication
+        kind: http
+        source: FEAT-SEC-005#binding.contract/target.device-authorization
+        participants:
+          - target: FEAT-SEC-005#binding.cli/target.device-auth
+            role: cli
+          - target: FEAT-SEC-005#binding.server/target.device-grants
+            role: backend
+          - target: FEAT-SEC-005#binding.contract/target.device-authorization
+            role: contract
+          - target: FEAT-SEC-005#binding.contract/target.device-approve
+            role: contract
+        guarantees:
+          - REQ-SEC-015#criterion.device-authorization-flow
+          - REQ-SEC-015#criterion.resource-bound-credentials
       - id: oidc-authentication
         kind: http
         source: FEAT-SEC-005#binding.contract/target.authorization-start
