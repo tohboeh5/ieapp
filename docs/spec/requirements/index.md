@@ -71,7 +71,8 @@ The OIDC external identity requirement `REQ-SEC-016` is represented canonically
 at `docs/mitase/requirements/security.yaml`, together with the agent-principal
 (`REQ-SEC-009`), credentialed CORS allowlist (`REQ-SEC-010`), CLI endpoint
 transport (`REQ-SEC-011`), and remote CLI device authentication (`REQ-SEC-015`)
-records. Its corresponding record in the
+records. The owner-approved Space Access Recovery (`REQ-SEC-012`) and durable
+recovery audit delivery (`REQ-SEC-013`) records are likewise canonical. Its corresponding record in the
 legacy Security registry remains read-only migration evidence for this slice;
 the remaining Security requirements continue to use their existing authority.
 The owner-approved Space Access Recovery regression now verifies that the old
