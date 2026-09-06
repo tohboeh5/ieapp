@@ -223,8 +223,6 @@ inventory:
             - docsite/src/docs-ssot.mjs
             - docsite/src/satteri-doc-links.mjs
             - docs/spec/features/features.yaml
-            - docs/spec/philosophy/foundation.yaml
-            - docs/spec/policies/policies.yaml
             - docs/architecture/release/v0.1.md
             - docs/architecture/release/v0.1-knowledge-compatibility.md
             - docs/version/v0.1.yaml
