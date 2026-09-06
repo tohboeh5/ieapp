@@ -91,8 +91,10 @@ focused slices. Changed-ownership enforcement remains staged
 until it can be scoped safely to the migrated slice.
 The canonical Operations graph now represents `REQ-OPS-001` through
 `REQ-OPS-028`, plus `REQ-OPS-030` and `REQ-OPS-031`, together with `REQ-OPS-043`
-and `REQ-OPS-044`; later Operations records remain read-only migration evidence
-until their focused Mitase slices are reviewed.
+and `REQ-OPS-044`; the superseded `REQ-OPS-032` and `REQ-OPS-033` records are
+absorbed by the canonical root task and quality-gate contracts. Later Operations
+records remain read-only migration evidence until their focused Mitase slices
+are reviewed.
 Other requirement and feature domains remain authoritative in their existing
 `docs/spec` records until migrated. The retired Asset requirement registry is
 not retained as a second semantic source; its canonical replacement is the
