@@ -7,45 +7,11 @@ const repoRoot = path.resolve(process.cwd(), "..");
 const specRoot = path.join(repoRoot, "docs/spec");
 
 describe("executable documentation sources", () => {
-  test("REQ-OPS-003: requirement IDs, related documents, and test references resolve", async () => {
+  test("REQ-OPS-003: legacy requirement registries are retired", async () => {
+    // Mitase owns requirement taxonomy now. This guard keeps the retired
+    // docs/spec requirement registries from returning as a second authority.
     const requirementDir = path.join(specRoot, "requirements");
-    const ids = new Set<string>();
-
-    for (const filename of await yamlFiles(requirementDir)) {
-      const source = parse(
-        await fs.readFile(path.join(requirementDir, filename), "utf8"),
-      ) as { requirements?: Requirement[] };
-      for (const requirement of source.requirements ?? []) {
-        assertRequirementStatusIntegrity(requirement);
-        expect(
-          ids.has(requirement.id),
-          `duplicate requirement ${requirement.id}`,
-        ).toBe(
-          false,
-        );
-        ids.add(requirement.id);
-
-        for (const related of requirement.related_spec ?? []) {
-          const relativePath = related.split("#", 1)[0];
-          await expectOnePath(
-            [
-              path.resolve(specRoot, relativePath),
-              path.resolve(requirementDir, relativePath),
-            ],
-            requirement.id,
-          );
-        }
-        for (const reference of requirement.tests ?? []) {
-          await expectPath(
-            path.resolve(repoRoot, reference.file),
-            requirement.id,
-          );
-        }
-      }
-    }
-    // Tracks the not-yet-retired legacy registry (Storage).
-    // Retired domains (including Operations and Security) are owned by docs/mitase now.
-    expect(ids.size).toBeGreaterThan(10);
+    expect(await yamlFiles(requirementDir)).toEqual([]);
   });
 
   test("REQ-OPS-004: version statuses agree with their tasks and canonical sources", async () => {
@@ -131,14 +97,6 @@ describe("executable documentation sources", () => {
   });
 });
 
-type Requirement = {
-  id: string;
-  status: string;
-  verification: string;
-  related_spec?: string[];
-  tests?: Array<{ file: string; cases?: string[] }>;
-};
-
 type VersionStatus = "planned" | "in_progress" | "completed";
 
 type VersionTask = { done?: boolean };
@@ -162,37 +120,11 @@ type VersionDocument = {
   milestones?: VersionMilestone[];
 };
 
-const requirementStatuses = new Set(["implemented", "planned", "superseded"]);
-const verificationStatuses = new Set(["traced", "untraced"]);
 const versionStatuses = new Set<VersionStatus>([
   "planned",
   "in_progress",
   "completed",
 ]);
-
-function assertRequirementStatusIntegrity(requirement: Requirement): void {
-  expect(
-    requirementStatuses.has(requirement.status),
-    `${requirement.id}: invalid requirement status`,
-  ).toBe(true);
-  expect(
-    verificationStatuses.has(requirement.verification),
-    `${requirement.id}: invalid verification status`,
-  ).toBe(true);
-
-  const tests = requirement.tests ?? [];
-  if (requirement.verification === "traced") {
-    expect(
-      tests,
-      `${requirement.id}: traced requirements need test references`,
-    ).not.toHaveLength(0);
-  } else {
-    expect(
-      tests,
-      `${requirement.id}: untraced requirements cannot claim test references`,
-    ).toHaveLength(0);
-  }
-}
 
 function assertVersionStatus(
   status: string,
@@ -280,21 +212,6 @@ async function yamlFilesRecursively(
 async function expectPath(filePath: string, owner: string): Promise<void> {
   await expect(fs.stat(filePath), `${owner}: missing ${filePath}`).resolves
     .toBeDefined();
-}
-
-async function expectOnePath(
-  filePaths: string[],
-  owner: string,
-): Promise<void> {
-  for (const filePath of filePaths) {
-    try {
-      await fs.stat(filePath);
-      return;
-    } catch {
-      // Try the next documented relative-path convention.
-    }
-  }
-  throw new Error(`${owner}: missing one of ${filePaths.join(", ")}`);
 }
 
 function collectFileValues(value: unknown): string[] {

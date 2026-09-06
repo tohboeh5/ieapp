@@ -86,31 +86,20 @@ retired and is no longer included in Mitase's declared inventory. The canonical
 Integrity requirements at `docs/mitase/requirements/integrity.yaml` are the only
 semantic authority for the Integrity domain.
 
-The Storage Space foundation, creation contract, and connector/access/routing/preference slice
-(`REQ-STO-001`, `REQ-STO-002`, `REQ-STO-003`, `REQ-STO-004`, `REQ-STO-005`, `REQ-STO-006`,
-`REQ-STO-007`, `REQ-STO-008`, `REQ-STO-009`, `REQ-STO-010`, and `REQ-STO-011`)
-is represented canonically at `docs/mitase/requirements/storage.yaml`.
-`REQ-STO-005` is now canonical: the same account-bound retry is HTTP 200,
-new creation is HTTP 201, and a different account's duplicate slug claim is
-HTTP 409 with `SPACE_ALREADY_EXISTS`. The legacy record remains a read-only
-migration snapshot. Storage layout synchronization,
-derived-relation, and Knowledge-compatibility requirements remain in this
-registry until their later migration slices are reviewed.
-The canonical Storage connector record preserves the connector-update and
-pre-commit validation contract; its available API/UI surface and core probe
-evidence are traced, while mandatory sequencing of an update after successful
-validation remains an explicit evidence gap. The canonical accessible-listing
-record likewise keeps runtime authorization and storage-error propagation as
-implementation requirements while its current verification target covers only
-the published OpenAPI boundary.
-
-The Storage layout, DerivedRelation, and v0.1 Knowledge compatibility records
-(`REQ-STO-012`, `REQ-STO-013`, and `REQ-STO-014`) are now represented in
-`docs/mitase/requirements/storage.yaml`. The records in this legacy file are
-retained as read-only migration evidence; the canonical graph carries the
-current artifact bindings and exact verification claims. Complete executable
-parity between every documented layout path and runtime creation remains an
-explicit follow-up rather than an inferred guarantee.
+The legacy Storage requirement registry at `requirements/storage.yaml` is
+retired and is no longer included in Mitase's declared inventory. The canonical
+Storage requirements at `docs/mitase/requirements/storage.yaml` are the only
+semantic authority for the Storage domain: `REQ-STO-001` through `REQ-STO-014`
+with the same account-bound retry (`200`), creation (`201`), and duplicate-slug
+(`409` with `SPACE_ALREADY_EXISTS`) contract. The canonical Storage connector
+record preserves the connector-update and pre-commit validation contract; its
+available API/UI surface and core probe evidence are traced, while mandatory
+sequencing of an update after successful validation remains an explicit evidence
+gap. The canonical accessible-listing record likewise keeps runtime
+authorization and storage-error propagation as implementation requirements while
+its current verification target covers only the published OpenAPI boundary.
+Complete executable parity between every documented layout path and runtime
+creation remains an explicit follow-up rather than an inferred guarantee.
 
 A current test mapping has this shape:
 
