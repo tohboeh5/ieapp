@@ -241,7 +241,6 @@ inventory:
             - docs/architecture/data-model/file-schemas.yaml
             - docs/architecture/contracts/derived-relations.md
             - docs/spec/features/index.md
-            - docs/spec/features/sql.md
             - docs/architecture/testing/strategy.md
             - docs/architecture/testing/ci-cd.md
             - docs/architecture/product/success-metrics.md
