@@ -61,8 +61,10 @@ application builder or arbitrary code runtime is shipped. :::
 - **Automate it:** use the [CLI guide](guide/automate/cli.md),
   [REST API](architecture/api/rest.md), or current
   [MCP surface](architecture/api/mcp.md).
-- **Verify it:** browse the [executable specification](spec/index.md), whose
-  registries point back to implementation and tests.
+- **Verify it:** browse the
+  [architecture contracts](architecture/contracts/overview.md), whose
+  requirements and implementation references are canonical in `docs/mitase`,
+  verified by `bash scripts/ci/mitase-check.sh`.
 
 ## Current product boundary
 

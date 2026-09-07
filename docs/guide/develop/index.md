@@ -38,8 +38,8 @@ ID or remove the local development data intentionally before seeding again.
 2. Use the repository root `mise` tasks for formatting, checks, tests, and the
    docsite build.
 3. When changing the browser or API boundary, read the matching
-   [architecture](../../architecture/index.md) and
-   [executable specification](../../spec/index.md).
+   [architecture](../../architecture/index.md); the executable requirements are
+   canonical in `docs/mitase`, verified by `bash scripts/ci/mitase-check.sh`.
 
 ## Place the Rust build cache on another disk
 
