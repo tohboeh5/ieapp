@@ -74,29 +74,29 @@ requirements:
 
   - id: REQ-OPS-003
     title: Governance Taxonomy Link Integrity
-    description: Governance and specification YAML remain parseable and free of dangling identifiers.
+    description: Governance and specification YAML remain parseable and free of dangling identifiers. Legacy requirement registries are retired; Mitase owns requirement taxonomy integrity.
     priority: medium
     status: implemented
     criteria:
       - id: taxonomy-integrity
         kind: quality
-        statement: The governance registries, requirement references, related documents, and test references resolve without duplicate or dangling identifiers.
+        statement: No legacy requirement registry remains beside the canonical Mitase graph, and the remaining governance registries resolve without duplicate or dangling identifiers.
         governed_by: [POL-008#rule.governance]
     bindings:
       - id: taxonomy-integrity-verification
         role: verification
         facet: docsite-test
-        responsibility: Verify the current legacy registry link-integrity contract through the exact docsite test. The legacy registries remain migration evidence for this slice; later domain migrations may move the checked authority.
+        responsibility: Verify that no legacy requirement registry remains under docs/spec through the exact docsite retirement-guard test. Requirement taxonomy integrity itself is owned by Mitase.
         targets:
           - id: taxonomy-integrity-test
             adapter: typescript
             path: docsite/src/spec-integrity.test.ts
-            selector: { kind: test, name: 'REQ-OPS-003: requirement IDs, related documents, and test references resolve' }
+            selector: { kind: test, name: 'REQ-OPS-003: legacy requirement registries are retired' }
             claims:
               - kind: verifies
                 criterion: REQ-OPS-003#criterion.taxonomy-integrity
                 covers: [FEAT-OPS-001#binding.registries/target.taxonomy-registry]
-                runner: { runner: docsite-vitest-file, arguments: { file: src/spec-integrity.test.ts, test: 'REQ-OPS-003: requirement IDs, related documents, and test references resolve' } }
+                runner: { runner: docsite-vitest-file, arguments: { file: src/spec-integrity.test.ts, test: 'REQ-OPS-003: legacy requirement registries are retired' } }
 
   - id: REQ-OPS-004
     title: Version Milestone Definitions
