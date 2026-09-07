@@ -250,9 +250,6 @@ inventory:
             - docs/architecture/security/sandbox.md
             - docs/architecture/security/dependency-audit.md
             - docs/architecture/security/authentication-overview.yaml
-            - docs/spec/stories/core.yaml
-            - docs/spec/stories/advanced.yaml
-            - docs/spec/stories/experimental.yaml
             - docs/spec/ui/index.md
             - docs/spec/ui/pages/space-assets.yaml
             - docs/spec/ui/pages/space-dashboard.yaml
