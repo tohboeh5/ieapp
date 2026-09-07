@@ -89,14 +89,10 @@ duplicate-create conflict
 contract is now canonical; remaining Storage records continue to be migrated in
 focused slices. Changed-ownership enforcement remains staged
 until it can be scoped safely to the migrated slice.
-The canonical Operations graph now represents `REQ-OPS-001` through
-`REQ-OPS-028`, plus `REQ-OPS-030`, `REQ-OPS-031`, `REQ-OPS-034`, `REQ-OPS-035`,
-`REQ-OPS-036`, `REQ-OPS-037`, `REQ-OPS-040`, and `REQ-OPS-041`, together with
-`REQ-OPS-043`
-and `REQ-OPS-044`; the superseded `REQ-OPS-032` and `REQ-OPS-033` records are
-absorbed by the canonical root task and quality-gate contracts. Later Operations
-records remain read-only migration evidence until their focused Mitase slices
-are reviewed.
+The legacy Operations requirement registry is likewise retired and no longer
+part of Mitase's declared inventory. The canonical Operations graph at
+`docs/mitase/requirements/ops.yaml` is the only semantic authority for the
+Operations domain.
 Other requirement and feature domains remain authoritative in their existing
 `docs/spec` records until migrated. The retired Asset requirement registry is
 not retained as a second semantic source; its canonical replacement is the
