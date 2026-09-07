@@ -575,6 +575,22 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-SEC-007#criterion.invitation-acceptance
+          - id: owner-recovery-approval
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: symbol, name: owner_recovery_approval }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
+          - id: recovery-outbox
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: symbol, name: mark_recovery_audit_delivered }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
       - id: membership-server
         role: implementation
         facet: backend
@@ -617,6 +633,29 @@ features:
                 criterion: REQ-SEC-007#criterion.explicit-membership-state
               - kind: satisfies
                 criterion: REQ-SEC-007#criterion.concurrency-safe-membership
+      - id: space-recovery
+        role: implementation
+        facet: backend
+        responsibility: Expose owner-approved Space binding recovery and restart-safe recovery audit delivery through the protected server boundary.
+        targets:
+          - id: owner-recovery-harness
+            adapter: rust
+            path: crates/ugoite-server/tests/owner_recovery.rs
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
+              - kind: satisfies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
+          - id: recovery-delivery-server
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: reconcile_recovery_audit_outbox }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
       - id: audit
         role: implementation
         facet: audit
@@ -643,6 +682,13 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-SEC-008#criterion.owner-authorized-audit-read
+          - id: recovery-event-delivery
+            adapter: rust
+            path: crates/ugoite-iceberg/src/audit.rs
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
       - id: contract
         role: contract-source
         facet: api
@@ -668,10 +714,22 @@ features:
             adapter: openapi
             path: crates/ugoite-server/src/openapi.json
             selector: { kind: operation, method: get, path: '/spaces/{space_id}/audit' }
+          - id: recovery-force-reset
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: '/spaces/{space_id}/admin/recovery/force-reset' }
+          - id: recovery-owner-start
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: /auth/recovery/owner/start }
+          - id: recovery-owner-finish
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: /auth/recovery/owner/finish }
       - id: client
         role: implementation
         facet: frontend
-        responsibility: Keep invitation acceptance connected to the protected browser route.
+        responsibility: Keep invitation acceptance connected to the protected browser route, and keep the owner-recovery client operation and protocol header connected to the portable operation surface.
         targets:
           - id: invitation-route
             adapter: typescript
@@ -680,6 +738,20 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-SEC-007#criterion.invitation-acceptance
+          - id: recovery-operation
+            adapter: rust
+            path: crates/ugoite-api-client/src/lib.rs
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
+          - id: recovery-protocol
+            adapter: typescript
+            path: frontend/src/lib/ugoite-client/protocol.test.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
     contracts:
       - id: space-authorization
         kind: http
@@ -738,6 +810,36 @@ features:
         guarantees:
           - REQ-SEC-008#criterion.attributed-append-only-audit
           - REQ-SEC-008#criterion.owner-authorized-audit-read
+      - id: space-access-recovery
+        kind: http
+        source: FEAT-SEC-004#binding.contract/target.recovery-force-reset
+        participants:
+          - target: FEAT-SEC-004#binding.membership/target.owner-recovery-approval
+            role: identity
+          - target: FEAT-SEC-004#binding.membership/target.recovery-outbox
+            role: identity
+          - target: FEAT-SEC-004#binding.space-recovery/target.owner-recovery-harness
+            role: backend
+          - target: FEAT-SEC-004#binding.space-recovery/target.recovery-delivery-server
+            role: backend
+          - target: FEAT-SEC-004#binding.audit/target.recovery-event-delivery
+            role: audit
+          - target: FEAT-SEC-004#binding.client/target.recovery-operation
+            role: client
+          - target: FEAT-SEC-004#binding.client/target.recovery-protocol
+            role: client
+          - target: FEAT-SEC-005#binding.client/target.space-recovery-journey
+            role: journey
+          - target: FEAT-SEC-004#binding.contract/target.recovery-force-reset
+            role: contract
+          - target: FEAT-SEC-004#binding.contract/target.recovery-owner-start
+            role: contract
+          - target: FEAT-SEC-004#binding.contract/target.recovery-owner-finish
+            role: contract
+        guarantees:
+          - REQ-SEC-012#criterion.owner-issued-binding-approval
+          - REQ-SEC-012#criterion.fresh-account-contract
+          - REQ-SEC-013#criterion.exactly-once-recovery-delivery
 
   - id: FEAT-SEC-005
     title: OIDC external identity authentication and linking
@@ -964,6 +1066,10 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-SEC-016#criterion.space-recovery-preserves-oidc
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+              - kind: satisfies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
       - id: contract
         role: contract-source
         facet: api

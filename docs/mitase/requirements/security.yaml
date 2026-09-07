@@ -713,6 +713,99 @@ requirements:
                 covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_endpoint_config, test: test_config_set_req_sec_011_rejects_non_loopback_cleartext_urls } }
 
+  - id: REQ-SEC-012
+    title: Owner-Approved Space Access Recovery
+    description: An active human Space Owner issues a tuple-bound, one-use approval for an active human principal in that Space. The target completes WebAuthn registration, which creates a fresh HumanAccount and atomically replaces only the target Space Principal binding. The principal ID, membership, role, ACL, resource ownership, audit identity, old account credentials, sessions, and unrelated Space bindings are preserved; the old account loses authorization only in the recovered Space and its linked OIDC methods are unchanged.
+    priority: high
+    status: implemented
+    criteria:
+      - id: owner-issued-binding-approval
+        kind: security
+        statement: Recovery approval is owner-issued, tuple-bound to one Space and target, one-use, and scoped so concurrent resets and post-issue generation changes fail closed while completion audit stays completion-only.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance]
+      - id: fresh-account-contract
+        kind: security
+        statement: Successful recovery returns a fresh account contract over the preserved Space binding without exposing an account-credential API, and the browser protocol forwards the recovery authorization header.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance]
+    bindings:
+      - id: owner-recovery-verification
+        role: verification
+        facet: verification
+        responsibility: Verify the owner-only binding scope, fresh-account contract, approval generation fencing, concurrent completion, failure preservation, client operation shape, protocol header forwarding, and supported browser journey through exact repository tests. The supported journey is shared with the REQ-SEC-016 preservation claim on the same test.
+        targets:
+          - id: scope-case
+            adapter: rust
+            path: crates/ugoite-server/tests/owner_recovery.rs
+            selector: { kind: test, name: test_req_sec_012_owner_only_space_scope_and_target_binding }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+                covers: [FEAT-SEC-004#binding.space-recovery/target.owner-recovery-harness]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-server, harness: owner_recovery, test: test_req_sec_012_owner_only_space_scope_and_target_binding } }
+          - id: fresh-contract-case
+            adapter: rust
+            path: crates/ugoite-server/tests/owner_recovery.rs
+            selector: { kind: test, name: test_req_sec_012_returns_a_fresh_account_contract }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
+                covers: [FEAT-SEC-004#binding.space-recovery/target.owner-recovery-harness, FEAT-SEC-004#binding.membership/target.owner-recovery-approval]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-server, harness: owner_recovery, test: test_req_sec_012_returns_a_fresh_account_contract } }
+          - id: generation-fence-case
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: test, name: tests::owner_approval_rejects_a_target_generation_changed_after_issue }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+                covers: [FEAT-SEC-004#binding.membership/target.owner-recovery-approval]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-identity, test: node_identity::tests::owner_approval_rejects_a_target_generation_changed_after_issue } }
+          - id: binding-scope-case
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: test, name: tests::test_req_sec_012_approval_is_binding_scoped_and_audit_is_completion_only }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+                covers: [FEAT-SEC-004#binding.membership/target.owner-recovery-approval]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-identity, test: node_identity::tests::test_req_sec_012_approval_is_binding_scoped_and_audit_is_completion_only } }
+          - id: concurrent-reset-case
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: test, name: tests::test_req_sec_012_concurrent_reset_winner_and_loser_session }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+                covers: [FEAT-SEC-004#binding.membership/target.owner-recovery-approval]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-identity, test: node_identity::tests::test_req_sec_012_concurrent_reset_winner_and_loser_session } }
+          - id: failure-preservation-case
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: test, name: tests::test_req_sec_012_replacement_failure_preserves_previous_approval }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+                covers: [FEAT-SEC-004#binding.membership/target.owner-recovery-approval]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-identity, test: node_identity::tests::test_req_sec_012_replacement_failure_preserves_previous_approval } }
+          - id: operation-shape-case
+            adapter: rust
+            path: crates/ugoite-api-client/src/lib.rs
+            selector: { kind: test, name: tests::test_req_sec_012_owner_recovery_operation_has_no_account_credential_api }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
+                covers: [FEAT-SEC-004#binding.client/target.recovery-operation]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-api-client, test: tests::test_req_sec_012_owner_recovery_operation_has_no_account_credential_api } }
+          - id: protocol-header-case
+            adapter: typescript
+            path: frontend/src/lib/ugoite-client/protocol.test.ts
+            selector: { kind: test, name: test_req_sec_012_owner_recovery_protocol_forwards_header }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
+                covers: [FEAT-SEC-004#binding.client/target.recovery-protocol]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/ugoite-client/protocol.test.ts, test: test_req_sec_012_owner_recovery_protocol_forwards_header } }
+
   - id: REQ-SEC-014
     title: Account Self-Recovery
     description: An active HumanAccount may replace its Node-local Passkey credentials only through an explicitly enrolled recovery-only TOTP and one valid offline Recovery Code, while preserving the HumanAccount and its Space bindings.
@@ -877,6 +970,68 @@ requirements:
                 criterion: REQ-SEC-014#criterion.recovery-audit-attribution
                 covers: [FEAT-SEC-003#binding.server/target.node-audit]
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-server, harness: api_contract, test: req_sec_014_openapi_publishes_account_recovery_surfaces } }
+
+  - id: REQ-SEC-013
+    title: Durable Recovery Audit Delivery
+    description: Successful Space binding recovery persists one canonical, secret-free recovery.space_binding_replaced event in the Node outbox, then delivers it to the Space audit chain with restart-safe exactly-once event identity. Completion is independent from delivery and reports delivered or pending without reissuing credentials or recovery codes.
+    priority: high
+    status: implemented
+    criteria:
+      - id: exactly-once-recovery-delivery
+        kind: quality
+        statement: Recovery audit events carry stable exactly-once identity across restarts, compaction, and delivery retries, so replays deduplicate, payload changes are rejected, and retained identities survive log compaction.
+        governed_by: [POL-001#rule.governance, POL-008#rule.governance, POL-011#rule.governance]
+    bindings:
+      - id: recovery-delivery-verification
+        role: verification
+        facet: verification
+        responsibility: Verify outbox redaction, idempotent filesystem replay, delivery-failure reconciliation, cross-process deduplication, and compaction survival through exact identity, server, Iceberg, and audit tests.
+        targets:
+          - id: outbox-case
+            adapter: rust
+            path: crates/ugoite-identity/src/node_identity.rs
+            selector: { kind: test, name: tests::test_req_sec_013_recovery_outbox_status_and_redaction }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
+                covers: [FEAT-SEC-004#binding.membership/target.recovery-outbox]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-identity, test: node_identity::tests::test_req_sec_013_recovery_outbox_status_and_redaction } }
+          - id: replay-case
+            adapter: rust
+            path: crates/ugoite-server/tests/owner_recovery.rs
+            selector: { kind: test, name: test_req_sec_013_recovery_audit_replay_is_idempotent_on_filesystem_storage }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
+                covers: [FEAT-SEC-004#binding.space-recovery/target.owner-recovery-harness]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-server, harness: owner_recovery, test: test_req_sec_013_recovery_audit_replay_is_idempotent_on_filesystem_storage } }
+          - id: delivery-failure-case
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: authentication_regression_tests::recovery_audit_delivery_failure_reloads_and_reconciles_exactly_once }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
+                covers: [FEAT-SEC-004#binding.space-recovery/target.recovery-delivery-server]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-server, test: authentication_regression_tests::recovery_audit_delivery_failure_reloads_and_reconciles_exactly_once } }
+          - id: dedup-case
+            adapter: rust
+            path: crates/ugoite-iceberg/src/audit.rs
+            selector: { kind: test, name: tests::test_req_sec_013_cross_process_conditional_append_deduplicates_event }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
+                covers: [FEAT-SEC-004#binding.audit/target.recovery-event-delivery]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-iceberg, test: audit::tests::test_req_sec_013_cross_process_conditional_append_deduplicates_event } }
+          - id: compaction-case
+            adapter: rust
+            path: crates/ugoite-iceberg/src/audit.rs
+            selector: { kind: test, name: tests::test_req_sec_013_retained_event_id_survives_log_compaction }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-013#criterion.exactly-once-recovery-delivery
+                covers: [FEAT-SEC-004#binding.audit/target.recovery-event-delivery]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-iceberg, test: audit::tests::test_req_sec_013_retained_event_id_survives_log_compaction } }
 
   - id: REQ-SEC-015
     title: Remote CLI Device Authentication
@@ -1164,5 +1319,13 @@ requirements:
             claims:
               - kind: verifies
                 criterion: REQ-SEC-016#criterion.space-recovery-preserves-oidc
+                covers: [FEAT-SEC-005#binding.client/target.space-recovery-journey]
+                runner: { runner: e2e-playwright, arguments: { file: e2e/owner-space-recovery.test.ts, test: req_sec_012_013_owner_space_access_recovery_supported_journey } }
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.owner-issued-binding-approval
+                covers: [FEAT-SEC-005#binding.client/target.space-recovery-journey]
+                runner: { runner: e2e-playwright, arguments: { file: e2e/owner-space-recovery.test.ts, test: req_sec_012_013_owner_space_access_recovery_supported_journey } }
+              - kind: verifies
+                criterion: REQ-SEC-012#criterion.fresh-account-contract
                 covers: [FEAT-SEC-005#binding.client/target.space-recovery-journey]
                 runner: { runner: e2e-playwright, arguments: { file: e2e/owner-space-recovery.test.ts, test: req_sec_012_013_owner_space_access_recovery_supported_journey } }
