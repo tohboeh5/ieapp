@@ -32,7 +32,7 @@ are new: architecture names the owners and adapters around the Space model.
 - **Normative contracts:** implementation-facing architecture specifications
   live under [architecture contracts](contracts/overview.md).
 
-The groups are intentionally explanatory entry points. For domains that have
-completed migration, the executable requirements and implementation references
-are canonical in `docs/mitase/`; unmigrated domain registries remain authoritative
-in `docs/spec/` until they are retired in focused slices.
+The groups are intentionally explanatory entry points. The executable
+requirements and implementation references are canonical in `docs/mitase/`,
+verified by `bash scripts/ci/mitase-check.sh`. No legacy specification registry
+remains beside that graph.
