@@ -15,7 +15,7 @@ phases:
         done: true
       - description: "Define Ugoite SQL syntax and capabilities"
         done: true
-      - description: "Define page-level UI specs under docs/spec/ui/pages/"
+      - description: "Define page-level UI specs under frontend/src/spec/pages/"
         done: true
   - id: implementation
     status: completed
