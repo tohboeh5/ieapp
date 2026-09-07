@@ -177,6 +177,7 @@ inventory:
             - docsite/src/spec-integrity.test.ts
             - tools/coverage_gates_test.ts
             - tools/knowledge_compatibility_test.ts
+            - tools/pr_body_gate_test.ts
             - tools/release_contract_test.ts
             - tools/release.ts
             - tools/release-notes.ts
@@ -309,6 +310,8 @@ inventory:
             - docs/guide/start/browser-first-entry.md
             - tools/knowledge_compatibility.ts
             - tools/knowledge_compatibility_test.ts
+            - tools/pr_body_gate.ts
+            - tools/pr_body_gate_test.ts
             - tools/coverage_gates_test.ts
             - tools/release.ts
             - tools/release-notes.ts
