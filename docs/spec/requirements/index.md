@@ -12,7 +12,7 @@ that domain is migrated. Any remaining verification gap remains explicit rather
 than being inferred from the existence of a binding.
 
 Operations requirements `REQ-OPS-001` through `REQ-OPS-028`, `REQ-OPS-030`,
-`REQ-OPS-031`, together with the inserted `REQ-OPS-043` and `REQ-OPS-044`
+`REQ-OPS-031`, `REQ-OPS-034`, and `REQ-OPS-035`, together with the inserted `REQ-OPS-043` and `REQ-OPS-044`
 gates, are now canonical in `docs/mitase/requirements/ops.yaml`. The superseded
 hook-installation and alternate-runtime records (`REQ-OPS-032`, `REQ-OPS-033`)
 are absorbed by the canonical root task surface and workspace quality gates and

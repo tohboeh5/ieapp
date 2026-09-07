@@ -96,6 +96,48 @@ Deno.test("REQ-OPS-027: repository tasks keep dependency resolution locked", asy
   assertEquals(deno.includes("--no-lock"), false);
 });
 
+Deno.test("REQ-OPS-034: direct-process E2E cleanup stops only owned processes", async () => {
+  const runner = await Deno.readTextFile("e2e/scripts/run-e2e.sh");
+  assertEquals(
+    runner.includes('kill "$BACKEND_PID" 2>/dev/null || true'),
+    true,
+    "cleanup must stop the started backend process",
+  );
+  assertEquals(
+    runner.includes('kill "$FRONTEND_PID" 2>/dev/null || true'),
+    true,
+    "cleanup must stop the started frontend process",
+  );
+  assertEquals(
+    runner.includes("is already in use."),
+    true,
+    "occupied ports must fail with a clear error",
+  );
+  assertEquals(
+    runner.includes("pkill"),
+    false,
+    "cleanup must not kill processes it did not start",
+  );
+});
+
+Deno.test("REQ-OPS-035: container defaults run non-root with dropped capabilities", async () => {
+  const dockerfile = await Deno.readTextFile("Dockerfile");
+  assertEquals(
+    dockerfile.includes("USER ugoite"),
+    true,
+    "runtime image must run as non-root",
+  );
+  assertEquals(
+    dockerfile.includes("chown -R ugoite:ugoite /data /app"),
+    true,
+    "persistent data must stay owned by the runtime user",
+  );
+  const values = await Deno.readTextFile("charts/ugoite/values.yaml");
+  assertEquals(values.includes("runAsNonRoot: true"), true);
+  assertEquals(values.includes("allowPrivilegeEscalation: false"), true);
+  assertEquals(values.includes("- ALL"), true);
+});
+
 Deno.test("Phase 1 workspace has one root toolchain and Deno lockfile", async () => {
   const rootMise = await Deno.readTextFile("mise.toml");
   assertEquals(rootMise.includes('deno = "2.8.3"'), true);
