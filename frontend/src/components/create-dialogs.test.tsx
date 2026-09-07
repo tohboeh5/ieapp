@@ -482,7 +482,7 @@ describe("CreateFormDialog", () => {
 });
 
 describe("CreateEntryDialog", () => {
-  it("REQ-FE-037: requires form selection before creating an entry", async () => {
+  it("REQ-FE-068: requires form selection before creating an entry", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -553,7 +553,7 @@ describe("CreateEntryDialog", () => {
     expect(onSubmit).toHaveBeenCalledWith("", "Notes", {}, "webform");
   });
 
-  it("REQ-FE-037: blocks submission when required fields are empty", async () => {
+  it("REQ-FE-068: blocks submission when required fields are empty", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -669,7 +669,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: pre-fills defaults for required fields", async () => {
+  it("REQ-FE-068: pre-fills defaults for required fields", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -715,7 +715,7 @@ describe("CreateEntryDialog", () => {
     expect((countInput as HTMLInputElement).value).toBe("0");
   });
 
-  it("REQ-FE-037: does not default or require deprecated fields in webform mode", async () => {
+  it("REQ-FE-068: does not default or require deprecated fields in webform mode", async () => {
     const onSubmit = vi.fn();
     const forms = [
       {
@@ -759,7 +759,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: does not block webform submission on a deprecated row reference", async () => {
+  it("REQ-FE-068: does not block webform submission on a deprecated row reference", async () => {
     const onSubmit = vi.fn();
     vi.spyOn(searchApi, "rowReferenceOptions").mockResolvedValue([]);
     const forms = [
@@ -811,7 +811,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: keeps numeric and temporal fields writable while editing", async () => {
+  it("REQ-FE-068: keeps numeric and temporal fields writable while editing", async () => {
     const onSubmit = vi.fn();
     const forms = [
       {
@@ -866,7 +866,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: renders optional fields in webform mode", async () => {
+  it("REQ-FE-068: renders optional fields in webform mode", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -908,7 +908,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: sanitizes webform field ids for labels", async () => {
+  it("REQ-FE-068: sanitizes webform field ids for labels", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -940,7 +940,7 @@ describe("CreateEntryDialog", () => {
     expect(scheduleInput).toHaveAttribute("id", "webform-0-due-date-eta");
   });
 
-  it("REQ-FE-037: falls back to a stable id when a field name slug is empty", async () => {
+  it("REQ-FE-068: falls back to a stable id when a field name slug is empty", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -972,7 +972,7 @@ describe("CreateEntryDialog", () => {
     expect(fallbackInput).toHaveAttribute("id", "webform-0-field");
   });
 
-  it("REQ-FE-037: supports markdown mode submission", async () => {
+  it("REQ-FE-068: supports markdown mode submission", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -1024,7 +1024,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: clears the markdown flow after successful submission", async () => {
+  it("REQ-FE-068: clears the markdown flow after successful submission", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -1893,7 +1893,7 @@ describe("CreateEntryDialog", () => {
     ).toBeInTheDocument();
   });
 
-  it("REQ-FE-037: keeps user-edited markdown when title changes", async () => {
+  it("REQ-FE-068: keeps user-edited markdown when title changes", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -1937,7 +1937,7 @@ describe("CreateEntryDialog", () => {
     ).toBe(customMarkdown);
   });
 
-  it("REQ-FE-037: submits in webform mode successfully", async () => {
+  it("REQ-FE-068: submits in webform mode successfully", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -2375,7 +2375,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: shows error when markdown is empty in markdown mode", async () => {
+  it("REQ-FE-068: shows error when markdown is empty in markdown mode", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -2417,7 +2417,7 @@ describe("CreateEntryDialog", () => {
       .toBeInTheDocument();
   });
 
-  it("REQ-FE-037: keeps the form open and shows required-field errors on submit", async () => {
+  it("REQ-FE-068: keeps the form open and shows required-field errors on submit", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -2460,7 +2460,7 @@ describe("CreateEntryDialog", () => {
     );
   });
 
-  it("REQ-FE-037: permits an ordinary user form named Assets", async () => {
+  it("REQ-FE-068: permits an ordinary user form named Assets", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
     const forms = [
@@ -2496,7 +2496,7 @@ describe("CreateEntryDialog", () => {
     expect((select as HTMLSelectElement).value).toBe("Assets");
   });
 
-  it("REQ-FE-037: closes the create-entry dialog from the backdrop and Escape key", async () => {
+  it("REQ-FE-068: closes the create-entry dialog from the backdrop and Escape key", async () => {
     const onSubmit = vi.fn();
     const onClose = vi.fn();
 
