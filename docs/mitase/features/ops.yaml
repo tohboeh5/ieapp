@@ -710,6 +710,29 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-OPS-035#criterion.non-root-runtime
+      - id: migrated-ops-docs
+        role: evidence
+        facet: documentation
+        responsibility: Connect the contributor guide and browser first-entry guide as generic documentation evidence for the workflow and walkthrough contracts.
+        targets:
+          - id: contributing-guide
+            adapter: declared
+            path: CONTRIBUTING.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-036#criterion.contributor-guidance
+          - id: first-entry-guide
+            adapter: declared
+            path: docs/guide/start/browser-first-entry.md
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-037#criterion.form-terminology
+              - kind: evidences
+                anchor: REQ-OPS-040#criterion.field-type-guidance
+              - kind: evidences
+                anchor: REQ-OPS-041#criterion.main-surface-guidance
       - id: release-contracts
         role: contract-source
         facet: release-promotion
