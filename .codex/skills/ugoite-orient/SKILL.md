@@ -12,7 +12,7 @@ CI or storage, or the owning code path is not already known.
 
 - `AGENTS.md`
 - `README.md`
-- `docs/spec/index.md`
+- `docs/index.md`
 - `docs/architecture/testing/ci-cd.md`
 - `docs/architecture/testing/strategy.md`
 - `mise.toml`

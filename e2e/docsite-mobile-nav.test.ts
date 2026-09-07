@@ -4,7 +4,7 @@ import {
   startDocsiteServer,
 } from "./support/docsite-server.ts";
 
-const docPath = "/docs/spec/";
+const docPath = "/docs/architecture/";
 const editLinkDocPath = "/docs/guide/automate/cli/";
 const homepagePath = "/";
 
