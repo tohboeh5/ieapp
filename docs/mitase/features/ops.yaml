@@ -75,7 +75,7 @@ features:
       - id: registries
         role: implementation
         facet: documentation
-        responsibility: Keep the registry artifacts that the current taxonomy-integrity test parses as exact implementation targets. The test proves link resolution for the current registry corpus; it does not make later unmigrated domains canonical.
+        responsibility: Keep the remaining governance registry artifacts connected as exact implementation targets. Legacy requirement registries are retired; the retirement-guard test proves none remain.
         targets:
           - id: taxonomy-registry
             adapter: declared
