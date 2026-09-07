@@ -59,6 +59,7 @@ inventory:
             - frontend/src/lib/client.test.ts
             - frontend/src/lib/date-format.ts
             - frontend/src/lib/date-format.test.ts
+            - frontend/src/lib/entry-input.ts
             - frontend/src/lib/entry-input.test.ts
             - frontend/src/lib/i18n.ts
             - frontend/src/lib/i18n.test.ts

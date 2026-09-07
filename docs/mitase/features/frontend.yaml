@@ -81,6 +81,8 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-FE-058#criterion.calm-loading
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.first-entry-onboarding
   - id: FEAT-FE-002
     title: Entry browsing and selection
     summary: Connect Entry list rendering, selected-entry highlighting, selection callbacks, and the plain Entries route to exact frontend verification evidence.
@@ -109,6 +111,8 @@ features:
                 criterion: REQ-FE-004#criterion.display
               - kind: satisfies
                 criterion: REQ-FE-008#criterion.selection
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.form-selection-gate
               - kind: satisfies
                 criterion: REQ-FE-044#criterion.dictionary-localization
           - id: entry-store
@@ -233,6 +237,21 @@ features:
                 criterion: REQ-FE-039#criterion.reserved-metadata
               - kind: satisfies
                 criterion: REQ-FE-055#criterion.responsive-layout
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.form-selection-gate
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.template-generation
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.required-field-blocking
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.reserved-form-exclusion
+          - id: entry-input
+            adapter: typescript
+            path: frontend/src/lib/entry-input.ts
+            selector: { kind: symbol, name: buildEntryMarkdownFromFields }
+            claims:
+              - kind: satisfies
+                criterion: REQ-FE-068#criterion.template-generation
           - id: edit-form-dialog
             adapter: typescript
             path: frontend/src/components/create-dialogs.tsx
