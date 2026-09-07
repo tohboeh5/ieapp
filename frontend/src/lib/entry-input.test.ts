@@ -47,7 +47,7 @@ describe("buildEntryMarkdownByMode", () => {
     expect(result).toContain("## Instant\n2026-08-21T10:48:00+09:00");
   });
 
-  it("REQ-FE-037: preserves user markdown whitespace in markdown mode", () => {
+  it("REQ-FE-068: preserves user markdown whitespace in markdown mode", () => {
     const formDef: Form = {
       name: "Meeting",
       version: 1,
@@ -66,7 +66,7 @@ describe("buildEntryMarkdownByMode", () => {
     expect(result).toBe(markdown);
   });
 
-  it("REQ-FE-037: builds from fields when __markdown is empty in markdown mode", () => {
+  it("REQ-FE-068: builds from fields when __markdown is empty in markdown mode", () => {
     const formDef: Form = {
       name: "Task",
       version: 1,
