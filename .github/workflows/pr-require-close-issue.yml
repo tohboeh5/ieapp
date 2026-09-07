@@ -19,86 +19,22 @@ jobs:
     runs-on: ubuntu-slim
     if: ${{ github.event_name == 'merge_group' || (!github.event.pull_request.draft && github.event.pull_request.user.login != 'dependabot[bot]') }}
     steps:
-      - name: Check out trusted compatibility policy
+      - name: Check out trusted gate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # pull_request_target and merge_group must never execute PR code.
           ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           sparse-checkout: |
+            mise.toml
             tools/knowledge_compatibility.ts
+            tools/pr_body_gate.ts
           persist-credentials: false
 
-      - name: Validate PR body matches required template
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          script: |
-            let body = context.payload.pull_request?.body || "";
-            let pullRequestAuthor = context.payload.pull_request?.user?.login;
-            if (context.eventName === "merge_group") {
-              const mergeGroupRef = context.ref || context.payload.merge_group?.head_ref || "";
-              const pullRequestNumber = mergeGroupRef.match(/(?:^|\/)pr-(\d+)(?:-|$)/)?.[1];
-              if (pullRequestNumber) {
-                const response = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: pullRequestNumber,
-                });
-                pullRequestAuthor = response.data.user?.login;
-                if (!body) {
-                  body = response.data.body || "";
-                }
-              }
-            }
-            if (pullRequestAuthor === "dependabot[bot]") {
-              core.info("Dependabot pull requests use generated bodies; skipping the human PR template gate.");
-              return;
-            }
-            const errors = [];
+          install: true
 
-            const requiredSections = [
-              "## Summary",
-              "## Related Issue (required)",
-              "## Knowledge Compatibility Review",
-              "## Testing",
-            ];
-
-            for (const section of requiredSections) {
-              if (!body.toLowerCase().includes(section.toLowerCase())) {
-                errors.push(`Missing required section: ${section}`);
-              }
-            }
-
-            const summaryMatch = body.match(/##\s*Summary\s*\n+([\s\S]*?)(?:\n##\s|$)/i);
-            const summaryText = summaryMatch?.[1]?.trim() ?? "";
-            if (!summaryText || summaryText === "-" || /^-\s*$/.test(summaryText)) {
-              errors.push("Summary section must be filled in and cannot remain the '-' placeholder.");
-            }
-
-            const issueLinkPattern = /(?:^|\n)\s*(?:close:\s*#\d+|closes\s+#\d+)\s*(?:\n|$)/i;
-            if (!issueLinkPattern.test(body)) {
-              errors.push("Related Issue must include either `close: #123` or `closes #123`.");
-            }
-
-            if (!process.versions.node.startsWith("24.")) {
-              throw new Error(
-                `Knowledge compatibility review requires Node 24; got ${process.versions.node}`,
-              );
-            }
-            const { pathToFileURL } = await import("node:url");
-            const trustedValidatorUrl = pathToFileURL(
-              `${process.env.GITHUB_WORKSPACE}/tools/knowledge_compatibility.ts`,
-            ).href;
-            const { validateKnowledgeCompatibilityReview } = await import(
-              trustedValidatorUrl
-            );
-            errors.push(...validateKnowledgeCompatibilityReview(body));
-
-            const testingMatch = body.match(/##\s*Testing\s*\n+([\s\S]*?)(?:\n##\s|$)/i);
-            const testingText = testingMatch?.[1]?.trim() ?? "";
-            if (!/- \[(?: |x|X)\]/.test(testingText)) {
-              errors.push("Testing section must include at least one checklist item.");
-            }
-
-            if (errors.length > 0) {
-              core.setFailed(errors.join("\n"));
-            }
+      - name: Validate PR body matches required template
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: deno run --allow-read --allow-env --allow-net=api.github.com tools/pr_body_gate.ts
