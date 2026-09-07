@@ -11,9 +11,9 @@ authorization remains governed by the authoritative Security requirement until
 that domain is migrated. Any remaining verification gap remains explicit rather
 than being inferred from the existence of a binding.
 
-Operations requirements `REQ-OPS-001` through `REQ-OPS-028`, together with the
-inserted `REQ-OPS-043` and `REQ-OPS-044` gates, are now canonical in
-`docs/mitase/requirements/ops.yaml`.
+Operations requirements `REQ-OPS-001` through `REQ-OPS-028`, `REQ-OPS-030`,
+`REQ-OPS-031`, together with the inserted `REQ-OPS-043` and `REQ-OPS-044`
+gates, are now canonical in `docs/mitase/requirements/ops.yaml`.
 The corresponding records in the legacy `requirements/ops.yaml` file are
 read-only migration evidence, not a second semantic authority; later
 Operations requirements remain there until their focused Mitase slices are
