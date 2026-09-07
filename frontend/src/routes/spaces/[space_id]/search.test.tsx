@@ -46,7 +46,7 @@ describe("/spaces/:space_id/search", () => {
 
   afterEach(() => setLocale("en"));
 
-  it("REQ-FE-054: renders human-readable updated dates in search history", async () => {
+  it("REQ-FE-069: renders human-readable updated dates in search history", async () => {
     seedSqlEntry("default", {
       id: "query-1",
       name: "Recent Search",

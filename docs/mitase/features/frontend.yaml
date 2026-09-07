@@ -216,7 +216,7 @@ features:
       - id: frontend
         role: implementation
         facet: frontend
-        responsibility: Keep shared frontend error feedback and locale behavior connected to the shipped dialogs, list surfaces, API client, dictionary, and portable preference store.
+        responsibility: Keep shared frontend error feedback, timestamp normalization, and locale behavior connected to the shipped dialogs, list surfaces, API clients, dictionary, and portable preference store.
         targets:
           - id: create-dialogs
             adapter: typescript
@@ -275,6 +275,29 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-FE-044#criterion.dictionary-localization
+          - id: date-client
+            adapter: typescript
+            path: frontend/src/lib/date-format.ts
+            selector: { kind: symbol, name: normalizeTimestamp }
+            claims:
+              - kind: satisfies
+                criterion: REQ-FE-069#criterion.date-label-rendering
+          - id: entry-client
+            adapter: typescript
+            path: frontend/src/lib/entry-api.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-FE-069#criterion.client-normalization
+          - id: search-client
+            adapter: typescript
+            path: frontend/src/lib/search-api.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-FE-069#criterion.client-normalization
+              - kind: satisfies
+                criterion: REQ-FE-069#criterion.date-label-rendering
           - id: public-locale-store
             adapter: typescript
             path: frontend/src/lib/preferences-store.ts
@@ -373,6 +396,8 @@ features:
                 criterion: REQ-FE-050#criterion.saved-query-lifecycle
               - kind: satisfies
                 criterion: REQ-FE-050#criterion.typed-errors
+              - kind: satisfies
+                criterion: REQ-FE-069#criterion.saved-query-normalization
           - id: sql-session-client
             adapter: typescript
             path: frontend/src/lib/sql-session-api.ts
@@ -382,6 +407,8 @@ features:
                 criterion: REQ-FE-051#criterion.session-lifecycle
               - kind: satisfies
                 criterion: REQ-FE-051#criterion.typed-errors
+              - kind: satisfies
+                criterion: REQ-FE-069#criterion.saved-query-normalization
 
   - id: FEAT-FE-007
     title: Saved SQL route workflows
