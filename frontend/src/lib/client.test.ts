@@ -155,7 +155,7 @@ describe("entryApi", () => {
       expect(entries[0].title).toBe("Test Entry");
     });
 
-    it("REQ-FE-054: entryApi normalizes unix-second timestamps for entry lists", async () => {
+    it("REQ-FE-069: entryApi normalizes unix-second timestamps for entry lists", async () => {
       server.use(
         http.get(
           testApiUrl("/spaces/test-ws/entries"),
@@ -922,7 +922,7 @@ describe("error paths", () => {
     );
   });
 
-  it("REQ-FE-054: searchApi.query normalizes unix-second timestamps", async () => {
+  it("REQ-FE-069: searchApi.query normalizes unix-second timestamps", async () => {
     server.use(
       http.post(
         testApiUrl("/spaces/ws-search-timestamps/query"),

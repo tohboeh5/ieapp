@@ -74,7 +74,7 @@ describe("/spaces/:space_id/entries", () => {
     expect(screen.queryByTestId("redirect")).not.toBeInTheDocument();
   });
 
-  it("REQ-FE-054: keeps the dedicated SQL session result route", async () => {
+  it("REQ-FE-067: keeps the dedicated SQL session result route", async () => {
     searchParams.session = "session-1";
     server.use(
       http.get(

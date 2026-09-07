@@ -46,7 +46,7 @@ describe("sqlSessionApi", () => {
     expect(result.totalCount).toBe(3);
   });
 
-  it("REQ-FE-054: sqlSessionApi normalizes unix-second timestamps for session rows", async () => {
+  it("REQ-FE-069: sqlSessionApi normalizes unix-second timestamps for session rows", async () => {
     server.use(
       http.get(
         testApiUrl("/spaces/sess-ws/sql-sessions/sess-1/rows"),

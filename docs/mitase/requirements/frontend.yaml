@@ -351,16 +351,16 @@ requirements:
           - id: route-selection
             adapter: typescript
             path: "frontend/src/routes/spaces/[space_id]/entries/index.test.tsx"
-            selector: { kind: test, name: "REQ-FE-054: keeps the dedicated SQL session result route" }
+            selector: { kind: test, name: "REQ-FE-067: keeps the dedicated SQL session result route" }
             claims:
               - kind: verifies
                 criterion: REQ-FE-008#criterion.selection
                 covers: [FEAT-FE-002#binding.frontend/target.entries-route]
-                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/entries/index.test.tsx", test: "REQ-FE-054: keeps the dedicated SQL session result route" } }
+                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/entries/index.test.tsx", test: "REQ-FE-067: keeps the dedicated SQL session result route" } }
               - kind: verifies
                 criterion: REQ-FE-067#criterion.sql-session-surface
                 covers: [FEAT-FE-002#binding.frontend/target.entries-route]
-                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/entries/index.test.tsx", test: "REQ-FE-054: keeps the dedicated SQL session result route" } }
+                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/entries/index.test.tsx", test: "REQ-FE-067: keeps the dedicated SQL session result route" } }
   - id: REQ-FE-005
     title: Markdown Editor
     description: The frontend provides a Markdown editor with editing, preview, save, and safe rendered-preview behavior for Entry content.
@@ -2509,3 +2509,91 @@ requirements:
                 criterion: REQ-FE-057#criterion.chat-flow
                 covers: [FEAT-FE-004#binding.frontend/target.entry-dialog]
                 runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-057: skipping an optional chat field clears its draft answer" } }
+
+  - id: REQ-FE-069
+    title: Timestamp Normalization in Query and Entry Lists
+    description: Frontend data clients and list views normalize Unix-second timestamps from backend responses before rendering. Entry, search, saved-query, and SQL-session surfaces show human-readable dates instead of raw epoch values or 1970 fallback dates. Absorbs legacy REQ-FE-054, whose tests now carry this requirement ID.
+    priority: medium
+    status: implemented
+    criteria:
+      - id: client-normalization
+        kind: behavior
+        statement: The entry and search data clients normalize Unix-second timestamps from backend responses for entry lists and query results.
+        governed_by: [POL-006#rule.governance]
+      - id: saved-query-normalization
+        kind: behavior
+        statement: The saved-query and SQL-session data clients normalize Unix-second timestamps for saved queries and session rows.
+        governed_by: [POL-006#rule.governance]
+      - id: date-label-rendering
+        kind: behavior
+        statement: Date labels render valid timestamps as locale dates and fall back to trimmed text or an em dash for missing or invalid inputs, so list surfaces never show raw epoch values or 1970 fallback dates.
+        governed_by: [POL-006#rule.governance]
+    bindings:
+      - id: timestamp-verification
+        role: verification
+        facet: verification
+        responsibility: Verify Unix-second normalization across entry, search, saved-query, and session clients plus locale date-label rendering through exact frontend tests.
+        targets:
+          - id: entry-client-case
+            adapter: typescript
+            path: frontend/src/lib/client.test.ts
+            selector: { kind: test, name: "REQ-FE-069: entryApi normalizes unix-second timestamps for entry lists" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.client-normalization
+                covers: [FEAT-FE-004#binding.frontend/target.entry-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/client.test.ts, test: "REQ-FE-069: entryApi normalizes unix-second timestamps for entry lists" } }
+          - id: search-client-case
+            adapter: typescript
+            path: frontend/src/lib/client.test.ts
+            selector: { kind: test, name: "REQ-FE-069: searchApi.query normalizes unix-second timestamps" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.client-normalization
+                covers: [FEAT-FE-004#binding.frontend/target.search-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/client.test.ts, test: "REQ-FE-069: searchApi.query normalizes unix-second timestamps" } }
+          - id: saved-query-case
+            adapter: typescript
+            path: frontend/src/lib/sql-api.test.ts
+            selector: { kind: test, name: "REQ-FE-069: sqlApi normalizes unix-second timestamps for saved queries" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.saved-query-normalization
+                covers: [FEAT-FE-006#binding.frontend/target.saved-sql-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/sql-api.test.ts, test: "REQ-FE-069: sqlApi normalizes unix-second timestamps for saved queries" } }
+          - id: session-rows-case
+            adapter: typescript
+            path: frontend/src/lib/sql-session-api.test.ts
+            selector: { kind: test, name: "REQ-FE-069: sqlSessionApi normalizes unix-second timestamps for session rows" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.saved-query-normalization
+                covers: [FEAT-FE-006#binding.frontend/target.sql-session-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/sql-session-api.test.ts, test: "REQ-FE-069: sqlSessionApi normalizes unix-second timestamps for session rows" } }
+          - id: normalize-unit-case
+            adapter: typescript
+            path: frontend/src/lib/date-format.test.ts
+            selector: { kind: test, name: "REQ-FE-069: normalizeTimestamp converts unix-second timestamps from numbers and numeric strings" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.date-label-rendering
+                covers: [FEAT-FE-004#binding.frontend/target.date-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/date-format.test.ts, test: "REQ-FE-069: normalizeTimestamp converts unix-second timestamps from numbers and numeric strings" } }
+          - id: date-label-case
+            adapter: typescript
+            path: frontend/src/lib/date-format.test.ts
+            selector: { kind: test, name: "REQ-FE-069: formatDateLabel renders valid timestamps as locale dates" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.date-label-rendering
+                covers: [FEAT-FE-004#binding.frontend/target.date-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/date-format.test.ts, test: "REQ-FE-069: formatDateLabel renders valid timestamps as locale dates" } }
+          - id: search-history-case
+            adapter: typescript
+            path: frontend/src/routes/spaces/[space_id]/search.test.tsx
+            selector: { kind: test, name: "REQ-FE-069: renders human-readable updated dates in search history" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-069#criterion.date-label-rendering
+                covers: [FEAT-FE-004#binding.frontend/target.search-client]
+                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/search.test.tsx", test: "REQ-FE-069: renders human-readable updated dates in search history" } }
