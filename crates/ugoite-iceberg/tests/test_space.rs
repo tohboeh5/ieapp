@@ -39,6 +39,8 @@ async fn test_space_req_sto_002_create_space_scaffolding() -> anyhow::Result<()>
     let meta: Value = serde_json::from_slice(&meta_bytes)?;
     assert_eq!(meta["id"], ws_id);
     assert_eq!(meta["name"], ws_id);
+    assert_eq!(meta["space_version"], "0.1");
+    assert!(meta.get("schema_version").is_none());
     assert!(meta.get("created_at").is_some());
     assert!(meta.get("storage").is_none());
 
@@ -245,21 +247,91 @@ async fn test_space_req_sto_005_create_space_idempotency() -> anyhow::Result<()>
 
 #[tokio::test]
 async fn legacy_space_metadata_schema_is_rejected() -> anyhow::Result<()> {
+    use ugoite_core::error::{AppError, ErrorCode};
+
     let op = setup_operator()?;
     space::create_space(&op, "legacy-schema", "/tmp").await?;
     let meta_path = "spaces/legacy-schema/meta.json";
     let mut meta: Value = serde_json::from_slice(&op.read(meta_path).await?.to_vec())?;
+    // Pre-stable internal format identity is not the stable Space Version.
     meta["schema_version"] = Value::from(1);
+    meta.as_object_mut()
+        .expect("space meta is an object")
+        .remove("space_version");
     op.write(meta_path, serde_json::to_vec(&meta)?).await?;
 
     let error = space::get_space(&op, "legacy-schema").await.unwrap_err();
-    assert!(error.to_string().contains("unsupported Space layout"));
+    let app_error = error
+        .downcast_ref::<AppError>()
+        .expect("missing space_version must surface a typed compatibility error");
+    assert_eq!(app_error.code(), ErrorCode::UnsupportedSpaceVersion);
+    assert_eq!(app_error.code_str(), "UNSUPPORTED_SPACE_VERSION");
     let workspace_error = form::list_forms(&op, "spaces/legacy-schema")
         .await
         .unwrap_err();
-    assert!(workspace_error
-        .to_string()
-        .contains("unsupported Space layout"));
+    assert!(
+        workspace_error
+            .to_string()
+            .contains("UNSUPPORTED_SPACE_VERSION")
+            || workspace_error
+                .to_string()
+                .contains("Unsupported Space version")
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn space_version_is_classified_before_version_specific_validation() -> anyhow::Result<()> {
+    use ugoite_core::error::{AppError, ErrorCode};
+
+    for (label, mutate) in [
+        ("missing", "missing"),
+        ("malformed", "malformed"),
+        ("unsupported", "unsupported"),
+    ] {
+        let op = setup_operator()?;
+        let space_id = format!("space-version-{label}");
+        space::create_space(&op, &space_id, "/tmp").await?;
+        let meta_path = format!("spaces/{space_id}/meta.json");
+        let mut meta: Value = serde_json::from_slice(&op.read(&meta_path).await?.to_vec())?;
+        match mutate {
+            "missing" => {
+                meta.as_object_mut().unwrap().remove("space_version");
+            }
+            "malformed" => {
+                meta["space_version"] = Value::from("0.1.0");
+            }
+            _ => {
+                meta["space_version"] = Value::from("0.2");
+            }
+        }
+        op.write(&meta_path, serde_json::to_vec(&meta)?).await?;
+        let error = space::get_space(&op, &space_id).await.unwrap_err();
+        let app_error = error
+            .downcast_ref::<AppError>()
+            .expect("space_version failures must be typed");
+        assert_eq!(
+            app_error.code(),
+            ErrorCode::UnsupportedSpaceVersion,
+            "{label}"
+        );
+        assert_eq!(app_error.code_str(), "UNSUPPORTED_SPACE_VERSION", "{label}");
+        let detail = app_error
+            .detail()
+            .expect("compatibility error carries detail");
+        assert!(detail.get("supported_space_versions").is_some(), "{label}");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn space_01_creation_exposes_version_in_runtime_metadata() -> anyhow::Result<()> {
+    let op = setup_operator()?;
+    space::create_space(&op, "space-01-meta", "/tmp").await?;
+    let typed = space::get_space(&op, "space-01-meta").await?;
+    assert_eq!(typed.space_version, "0.1");
+    let raw = space::get_space_raw(&op, "space-01-meta").await?;
+    assert_eq!(raw["space_version"], "0.1");
     Ok(())
 }
 

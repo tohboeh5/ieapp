@@ -39,6 +39,7 @@ pub enum ErrorCode {
     FormValidationFailed,
     UnknownFormFields,
     InvalidInput,
+    UnsupportedSpaceVersion,
     CheckpointUnavailable,
     CheckpointIntegrity,
     CheckpointAlreadyExists,
@@ -71,6 +72,7 @@ impl ErrorCode {
             Self::FormValidationFailed => "FORM_VALIDATION_FAILED",
             Self::UnknownFormFields => "UNKNOWN_FORM_FIELDS",
             Self::InvalidInput => "INVALID_INPUT",
+            Self::UnsupportedSpaceVersion => "UNSUPPORTED_SPACE_VERSION",
             Self::CheckpointUnavailable => "CHECKPOINT_UNAVAILABLE",
             Self::CheckpointIntegrity => "CHECKPOINT_INTEGRITY",
             Self::CheckpointAlreadyExists => "CHECKPOINT_ALREADY_EXISTS",
@@ -167,6 +169,26 @@ impl AppError {
 
     pub fn dependency_unavailable(code: ErrorCode, message: impl Into<String>) -> Self {
         Self::new(ErrorKind::DependencyUnavailable, code, message)
+    }
+
+    /// Typed Space compatibility failure. Opening a Space MUST NOT implicitly
+    /// migrate it; callers use this error to explain that another Product
+    /// version or an explicit migration is required.
+    pub fn unsupported_space_version(detected: Option<&str>, supported: &[&str]) -> Self {
+        let detected_text = detected.unwrap_or("(missing)");
+        let mut error = Self::new(
+            ErrorKind::InvalidInput,
+            ErrorCode::UnsupportedSpaceVersion,
+            format!(
+                "Unsupported Space version {detected_text}; this Product supports: {}",
+                supported.join(", ")
+            ),
+        );
+        error.detail = Some(serde_json::json!({
+            "detected_space_version": detected.map(str::to_owned),
+            "supported_space_versions": supported,
+        }));
+        error
     }
 
     pub fn kind(&self) -> ErrorKind {

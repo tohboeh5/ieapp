@@ -19,11 +19,23 @@ use url::Url;
 use crate::form;
 use ugoite_core::error::{AppError, ErrorCode};
 use ugoite_domain::id::validate_space_id;
+use ugoite_domain::space::{
+    classify_space_version, raw_space_version, CURRENT_SPACE_VERSION, SUPPORTED_SPACE_VERSIONS,
+};
 pub use ugoite_domain::space::{storage_type_and_root, SpaceMeta, StorageConfig};
 use ugoite_storage::{operator_from_uri_with_endpoint, OpendalStorage, StorageBackend};
 
-pub(crate) const CURRENT_SPACE_SCHEMA_VERSION: u64 = 3;
+/// Current stable Space compatibility generation written to new Spaces.
+pub const CURRENT_SPACE_VERSION_EXPORT: &str = CURRENT_SPACE_VERSION;
 const STORAGE_CONNECTION_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn unsupported_space_version_error(meta: &serde_json::Value) -> anyhow::Error {
+    AppError::unsupported_space_version(
+        raw_space_version(meta).as_deref(),
+        SUPPORTED_SPACE_VERSIONS,
+    )
+    .into()
+}
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct StorageConnectionTestConfig {
@@ -276,7 +288,7 @@ async fn create_space_with_storage<S: StorageBackend + ?Sized>(
     let (hmac_key_id, hmac_key, last_rotation) = generate_hmac_material();
 
     let meta = serde_json::json!({
-        "schema_version": CURRENT_SPACE_SCHEMA_VERSION,
+        "space_version": CURRENT_SPACE_VERSION,
         "space_id": directory_id,
         "space_uid": space_uid,
         "slug": slug,
@@ -634,10 +646,16 @@ pub(crate) fn validate_current_space_metadata(
     expected_directory_id: &str,
     meta: &serde_json::Value,
 ) -> Result<uuid::Uuid> {
+    // Opening a Space MUST occur in bootstrap order: obtain space_version,
+    // classify it, reject unsupported versions before authoritative mutation,
+    // and only then perform version-specific metadata validation.
+    if classify_space_version(meta).is_err() {
+        return Err(unsupported_space_version_error(meta));
+    }
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct CurrentSpaceMetadata {
-        schema_version: u64,
+        space_version: String,
         space_id: String,
         space_uid: uuid::Uuid,
         slug: String,
@@ -652,10 +670,8 @@ pub(crate) fn validate_current_space_metadata(
     let metadata: CurrentSpaceMetadata = serde_json::from_value(meta.clone()).map_err(|error| {
         anyhow!("unsupported Space layout: incomplete or invalid metadata: {error}")
     })?;
-    if metadata.schema_version != CURRENT_SPACE_SCHEMA_VERSION {
-        return Err(anyhow!(
-            "unsupported Space layout: metadata schema_version must be 3"
-        ));
+    if metadata.space_version != CURRENT_SPACE_VERSION {
+        return Err(unsupported_space_version_error(meta));
     }
     if metadata.space_id != expected_directory_id {
         return Err(anyhow!(

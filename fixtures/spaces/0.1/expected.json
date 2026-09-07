@@ -1,0 +1,10 @@
+{
+  "space_version": "0.1",
+  "space_id": "019c1234-5678-7abc-8def-0123456789ab",
+  "space_uid": "019c1234-5678-7abc-8def-0123456789ab",
+  "slug": "space-01-history",
+  "name": "Space 0.1 History",
+  "settings": {
+    "default_form": "Entry"
+  }
+}

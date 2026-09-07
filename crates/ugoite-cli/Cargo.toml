@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 ugoite_iceberg = { package = "ugoite-iceberg", path = "../ugoite-iceberg" }
 ugoite-core = { path = "../ugoite-core" }
+ugoite-domain = { path = "../ugoite-domain" }
 ugoite-api-client = { path = "../ugoite-api-client" }
 ugoite-konase = { path = "../ugoite-konase" }
 ugoite-konase-rig = { path = "../ugoite-konase-rig" }

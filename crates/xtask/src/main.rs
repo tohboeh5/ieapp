@@ -6,7 +6,7 @@ use std::{env, fs, path::Path, process::Command};
 fn main() -> Result<()> {
     let mut args = env::args().skip(1);
     let Some(command) = args.next() else {
-        println!("usage: cargo run -p xtask -- <openapi-generate|openapi-check|architecture-check|docs-current-stack-check|supported-check|legacy-auth-check>");
+        println!("usage: cargo run -p xtask -- <openapi-generate|openapi-check|architecture-check|docs-current-stack-check|supported-check|legacy-auth-check|space-version-check>");
         return Ok(());
     };
     match command.as_str() {
@@ -16,6 +16,7 @@ fn main() -> Result<()> {
         "docs-current-stack-check" => docs_current_stack_check(),
         "supported-check" => supported_check(),
         "legacy-auth-check" => legacy_auth_check(),
+        "space-version-check" => space_version_check(),
         other => bail!("unknown xtask command: {other}"),
     }
 }
@@ -606,6 +607,143 @@ fn legacy_auth_check() -> Result<()> {
     if !violations.is_empty() {
         bail!("{}", violations.join("\n"));
     }
+    Ok(())
+}
+
+fn space_version_check() -> Result<()> {
+    let mut violations = Vec::new();
+
+    let domain_space =
+        fs::read_to_string("crates/ugoite-domain/src/space.rs").context("read domain space.rs")?;
+    let current = domain_space
+        .lines()
+        .find_map(|line| {
+            let line = line.trim();
+            line.strip_prefix("pub const CURRENT_SPACE_VERSION: &str = \"")
+                .and_then(|rest| rest.strip_suffix("\";"))
+                .map(str::to_owned)
+        })
+        .unwrap_or_default();
+    if current.is_empty() {
+        violations.push("ugoite-domain must declare CURRENT_SPACE_VERSION".to_string());
+    }
+    let supported_line = domain_space
+        .lines()
+        .find(|line| line.contains("SUPPORTED_SPACE_VERSIONS"))
+        .unwrap_or("");
+    if !supported_line.contains(&format!("\"{current}\"")) && !current.is_empty() {
+        violations.push(format!(
+            "SUPPORTED_SPACE_VERSIONS must contain CURRENT_SPACE_VERSION {current}"
+        ));
+    }
+
+    let parse_version = |value: &str| -> Option<(u64, u64)> {
+        let (major, generation) = value.split_once('.')?;
+        if major.is_empty() || generation.is_empty() {
+            return None;
+        }
+        if !major.bytes().all(|b| b.is_ascii_digit())
+            || !generation.bytes().all(|b| b.is_ascii_digit())
+        {
+            return None;
+        }
+        Some((major.parse().ok()?, generation.parse().ok()?))
+    };
+    let Some((space_major, space_generation)) = parse_version(&current) else {
+        violations.push(format!(
+            "CURRENT_SPACE_VERSION {current:?} must be <major>.<generation>"
+        ));
+        bail!("{}", violations.join("\n"));
+    };
+    if space_major == 0 && space_generation < 1 {
+        violations.push(format!("Space 0.x generations start at 0.1; got {current}"));
+    }
+
+    let cargo = fs::read_to_string("Cargo.toml").context("read workspace Cargo.toml")?;
+    let product_version = cargo
+        .split("[workspace.package]")
+        .nth(1)
+        .and_then(|section| {
+            section.lines().find_map(|line| {
+                let line = line.trim();
+                line.strip_prefix("version = \"")
+                    .and_then(|rest| rest.strip_suffix("\""))
+                    .map(str::to_owned)
+            })
+        })
+        .unwrap_or_default();
+    let product_major: u64 = product_version
+        .split('.')
+        .next()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(u64::MAX);
+    if space_major > product_major {
+        violations.push(format!(
+            "Space major {space_major} must not exceed Product major {product_major} (product {product_version}, space {current})"
+        ));
+    }
+
+    // Historical compatibility evidence for every supported generation.
+    for supported in ["0.1"] {
+        if !Path::new(&format!("fixtures/spaces/{supported}")).is_dir() {
+            violations.push(format!(
+                "missing historical fixture fixtures/spaces/{supported}/"
+            ));
+        }
+    }
+    if !Path::new(&format!("fixtures/spaces/{current}")).is_dir() {
+        violations.push(format!(
+            "missing historical fixture fixtures/spaces/{current}/"
+        ));
+    }
+
+    // The stable Space identity is space_version, not schema_version.
+    for path in [
+        "crates/ugoite-iceberg/src/space.rs",
+        "crates/ugoite-cli/src/config.rs",
+    ] {
+        let text = fs::read_to_string(path).with_context(|| format!("read {path}"))?;
+        if text.contains("\"schema_version\"") || text.contains("CURRENT_SPACE_SCHEMA_VERSION") {
+            violations.push(format!(
+                "{path} must not use schema_version as the Space compatibility identity"
+            ));
+        }
+    }
+    // Opening a Space must never implicitly migrate it.
+    for path in [
+        "crates/ugoite-iceberg/src/space.rs",
+        "crates/ugoite-iceberg/src/iceberg_store.rs",
+        "crates/ugoite-iceberg/src/service.rs",
+    ] {
+        let text = fs::read_to_string(path).with_context(|| format!("read {path}"))?;
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("auto-migrat") || lower.contains("implicitly migrat") {
+            violations.push(format!("{path} must not imply automatic migration on open"));
+        }
+    }
+    // No generic migration machinery before a real migration requires one.
+    for path in collect_files(Path::new("crates"))? {
+        let path_text = path.to_string_lossy();
+        if !(path_text.ends_with(".rs") && path_text.contains("ugoite-iceberg")) {
+            continue;
+        }
+        let text = fs::read_to_string(&path).with_context(|| format!("read {path_text}"))?;
+        for forbidden in [
+            "trait SpaceMigration",
+            "struct MigrationRegistry",
+            "struct MigrationGraph",
+            "enum MigrationGraph",
+        ] {
+            if text.contains(forbidden) {
+                violations.push(format!("{path_text} introduces generic migration machinery {forbidden} before a real migration requires it"));
+            }
+        }
+    }
+
+    if !violations.is_empty() {
+        bail!("{}", violations.join("\n"));
+    }
+    println!("space version check: current Space {current} (product {product_version})");
     Ok(())
 }
 
