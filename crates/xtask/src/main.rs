@@ -363,7 +363,7 @@ fn docs_current_stack_check() -> Result<()> {
     let mut violations = Vec::new();
     for root in [
         "README.md",
-        "docs/spec/index.md",
+        "docs/index.md",
         "docs/architecture/contracts/overview.md",
         "docs/architecture/contracts/stack.md",
         "docs/architecture/testing/ci-cd.md",
