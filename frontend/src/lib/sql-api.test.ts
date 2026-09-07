@@ -25,7 +25,7 @@ describe("sqlApi", () => {
     expect(entries).toEqual([]);
   });
 
-  it("REQ-FE-054: sqlApi normalizes unix-second timestamps for saved queries", async () => {
+  it("REQ-FE-069: sqlApi normalizes unix-second timestamps for saved queries", async () => {
     server.use(
       http.get(testApiUrl("/spaces/sql-ws/sql"), () =>
         HttpResponse.json([
