@@ -90,8 +90,9 @@ contract is now canonical; remaining Storage records continue to be migrated in
 focused slices. Changed-ownership enforcement remains staged
 until it can be scoped safely to the migrated slice.
 The canonical Operations graph now represents `REQ-OPS-001` through
-`REQ-OPS-028`, plus `REQ-OPS-030`, `REQ-OPS-031`, `REQ-OPS-034`, and `REQ-OPS-035`,
-together with `REQ-OPS-043`
+`REQ-OPS-028`, plus `REQ-OPS-030`, `REQ-OPS-031`, `REQ-OPS-034`, `REQ-OPS-035`,
+`REQ-OPS-036`, `REQ-OPS-037`, `REQ-OPS-040`, and `REQ-OPS-041`, together with
+`REQ-OPS-043`
 and `REQ-OPS-044`; the superseded `REQ-OPS-032` and `REQ-OPS-033` records are
 absorbed by the canonical root task and quality-gate contracts. Later Operations
 records remain read-only migration evidence until their focused Mitase slices
