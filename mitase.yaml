@@ -250,25 +250,25 @@ inventory:
             - docs/architecture/security/dependency-audit.md
             - docs/architecture/security/authentication-overview.yaml
             - docs/spec/ui/index.md
-            - docs/spec/ui/pages/space-assets.yaml
-            - docs/spec/ui/pages/space-dashboard.yaml
-            - docs/spec/ui/pages/space-entries-object.yaml
-            - docs/spec/ui/pages/space-entry-detail.yaml
-            - docs/spec/ui/pages/space-entry-history.yaml
-            - docs/spec/ui/pages/space-entry-new.yaml
-            - docs/spec/ui/pages/space-entry-restore.yaml
-            - docs/spec/ui/pages/space-entry-revision.yaml
-            - docs/spec/ui/pages/space-form-grid.yaml
-            - docs/spec/ui/pages/space-form-types.yaml
-            - docs/spec/ui/pages/space-home.yaml
-            - docs/spec/ui/pages/space-query-create.yaml
-            - docs/spec/ui/pages/space-query-variables.yaml
-            - docs/spec/ui/pages/space-search.yaml
-            - docs/spec/ui/pages/space-settings.yaml
-            - docs/spec/ui/pages/space-sql-detail.yaml
-            - docs/spec/ui/pages/space-sql.yaml
-            - docs/spec/ui/pages/space-test-connection.yaml
-            - docs/spec/ui/components/space-shell.yaml
+            - frontend/src/spec/pages/space-assets.yaml
+            - frontend/src/spec/pages/space-dashboard.yaml
+            - frontend/src/spec/pages/space-entries-object.yaml
+            - frontend/src/spec/pages/space-entry-detail.yaml
+            - frontend/src/spec/pages/space-entry-history.yaml
+            - frontend/src/spec/pages/space-entry-new.yaml
+            - frontend/src/spec/pages/space-entry-restore.yaml
+            - frontend/src/spec/pages/space-entry-revision.yaml
+            - frontend/src/spec/pages/space-form-grid.yaml
+            - frontend/src/spec/pages/space-form-types.yaml
+            - frontend/src/spec/pages/space-home.yaml
+            - frontend/src/spec/pages/space-query-create.yaml
+            - frontend/src/spec/pages/space-query-variables.yaml
+            - frontend/src/spec/pages/space-search.yaml
+            - frontend/src/spec/pages/space-settings.yaml
+            - frontend/src/spec/pages/space-sql-detail.yaml
+            - frontend/src/spec/pages/space-sql.yaml
+            - frontend/src/spec/pages/space-test-connection.yaml
+            - frontend/src/spec/components/space-shell.yaml
             - .github/workflows/ci.yml
             - .github/workflows/codeql.yml
             - .github/workflows/pr-require-close-issue.yml

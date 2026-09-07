@@ -20,7 +20,7 @@ type PageSpec = {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
-const pagesDir = path.join(repoRoot, "docs/spec/ui/pages");
+const pagesDir = path.join(repoRoot, "frontend/src/spec/pages");
 const routesDir = path.join(repoRoot, "frontend/src/routes/spaces/[space_id]");
 
 const allowedComponentTypes = new Set([
@@ -231,7 +231,7 @@ describe("UI spec YAML registry", () => {
     for (const route of routes) {
       expect(
         documented.has(route),
-        `missing docs/spec/ui/pages entry for route: ${route}`,
+        `missing frontend/src/spec/pages entry for route: ${route}`,
       ).toBe(
         true,
       );
@@ -270,7 +270,7 @@ describe("UI spec YAML registry", () => {
   it("REQ-FE-040: validates shared space chrome", () => {
     const shellPath = path.join(
       repoRoot,
-      "docs/spec/ui/components/space-shell.yaml",
+      "frontend/src/spec/components/space-shell.yaml",
     );
     const shell = parse(readFileSync(shellPath, "utf8")) as {
       components?: Array<Record<string, unknown>>;

@@ -249,7 +249,7 @@ policies:
             claims: [{ kind: documents, anchor: POL-006#rule.governance }]
           - id: ui-pages
             adapter: declared
-            path: docs/spec/ui/pages/space-home.yaml
+            path: frontend/src/spec/pages/space-home.yaml
             selector: { kind: file }
             claims: [{ kind: documents, anchor: POL-006#rule.governance }]
   - id: POL-007

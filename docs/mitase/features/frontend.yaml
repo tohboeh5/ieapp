@@ -553,7 +553,7 @@ features:
         targets:
           - id: page-registry
             adapter: declared
-            path: docs/spec/ui/pages/space-home.yaml
+            path: frontend/src/spec/pages/space-home.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -562,7 +562,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-assets
             adapter: declared
-            path: docs/spec/ui/pages/space-assets.yaml
+            path: frontend/src/spec/pages/space-assets.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -571,7 +571,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-dashboard
             adapter: declared
-            path: docs/spec/ui/pages/space-dashboard.yaml
+            path: frontend/src/spec/pages/space-dashboard.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -580,7 +580,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-entries-object
             adapter: declared
-            path: docs/spec/ui/pages/space-entries-object.yaml
+            path: frontend/src/spec/pages/space-entries-object.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -589,7 +589,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-entry-detail
             adapter: declared
-            path: docs/spec/ui/pages/space-entry-detail.yaml
+            path: frontend/src/spec/pages/space-entry-detail.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -598,7 +598,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-entry-history
             adapter: declared
-            path: docs/spec/ui/pages/space-entry-history.yaml
+            path: frontend/src/spec/pages/space-entry-history.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -607,7 +607,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-entry-new
             adapter: declared
-            path: docs/spec/ui/pages/space-entry-new.yaml
+            path: frontend/src/spec/pages/space-entry-new.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -616,7 +616,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-entry-restore
             adapter: declared
-            path: docs/spec/ui/pages/space-entry-restore.yaml
+            path: frontend/src/spec/pages/space-entry-restore.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -625,7 +625,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-entry-revision
             adapter: declared
-            path: docs/spec/ui/pages/space-entry-revision.yaml
+            path: frontend/src/spec/pages/space-entry-revision.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -634,7 +634,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-form-grid
             adapter: declared
-            path: docs/spec/ui/pages/space-form-grid.yaml
+            path: frontend/src/spec/pages/space-form-grid.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -643,7 +643,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-form-types
             adapter: declared
-            path: docs/spec/ui/pages/space-form-types.yaml
+            path: frontend/src/spec/pages/space-form-types.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -652,7 +652,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-query-create
             adapter: declared
-            path: docs/spec/ui/pages/space-query-create.yaml
+            path: frontend/src/spec/pages/space-query-create.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -661,7 +661,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-query-variables
             adapter: declared
-            path: docs/spec/ui/pages/space-query-variables.yaml
+            path: frontend/src/spec/pages/space-query-variables.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -670,7 +670,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-search
             adapter: declared
-            path: docs/spec/ui/pages/space-search.yaml
+            path: frontend/src/spec/pages/space-search.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -679,7 +679,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-settings
             adapter: declared
-            path: docs/spec/ui/pages/space-settings.yaml
+            path: frontend/src/spec/pages/space-settings.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -688,7 +688,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-sql-detail
             adapter: declared
-            path: docs/spec/ui/pages/space-sql-detail.yaml
+            path: frontend/src/spec/pages/space-sql-detail.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -697,7 +697,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-sql
             adapter: declared
-            path: docs/spec/ui/pages/space-sql.yaml
+            path: frontend/src/spec/pages/space-sql.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -706,7 +706,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: page-space-test-connection
             adapter: declared
-            path: docs/spec/ui/pages/space-test-connection.yaml
+            path: frontend/src/spec/pages/space-test-connection.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
@@ -715,7 +715,7 @@ features:
                 criterion: REQ-FE-040#criterion.route-coverage
           - id: space-chrome
             adapter: declared
-            path: docs/spec/ui/components/space-shell.yaml
+            path: frontend/src/spec/components/space-shell.yaml
             selector: { kind: file }
             claims:
               - kind: satisfies
