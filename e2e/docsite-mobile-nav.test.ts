@@ -169,4 +169,13 @@ async function openSidebarGroup(
   }
   const summary = sidebar.locator("summary").filter({ hasText: label }).first();
   await summary.click();
+  // The click toggles the group: when it starts expanded (for example, the
+  // section of the current page), one click collapses it. Reopen in that case.
+  const ownOpen = await summary.evaluate((element) => {
+    const details = element.closest("details");
+    return details ? details.open : true;
+  });
+  if (!ownOpen && !(await link.isVisible())) {
+    await summary.click();
+  }
 }
