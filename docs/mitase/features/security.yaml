@@ -43,6 +43,17 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-SEC-003#criterion.protected-mcp
+          - id: cors-policy
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: configured_cors_origin_allowed }
+            claims:
+              - kind: satisfies
+                criterion: REQ-SEC-010#criterion.exact-allowlist
+              - kind: satisfies
+                criterion: REQ-SEC-010#criterion.preflight-contract
+              - kind: satisfies
+                criterion: REQ-SEC-010#criterion.disabled-by-default
       - id: listen-configuration
         role: implementation
         facet: deployment
@@ -480,6 +491,27 @@ features:
     summary: Connect Space-scoped authorization, invitation membership lifecycle, and owner-authorized audit reads across the shared authorization state, identity invitation flow, Rust service, server handlers, OpenAPI operations, browser routes, and exact repository artifacts.
     status: implemented
     bindings:
+      - id: planned-agent-principals
+        role: evidence
+        facet: planned-work
+        responsibility: Record the shared authorization state and identity credential surface as the planning surface for future sponsored Agent Principals without claiming they exist.
+        targets:
+          - id: authorization-state
+            adapter: rust
+            path: crates/ugoite-iceberg/src/authorization.rs
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-SEC-009#criterion.scoped-agent-credentials
+              - kind: evidences
+                anchor: REQ-SEC-009#criterion.human-approval-for-dangerous-mutations
+          - id: credential-surface
+            adapter: rust
+            path: crates/ugoite-identity/src/oauth.rs
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-SEC-009#criterion.scoped-agent-credentials
       - id: authorization
         role: implementation
         facet: authorization
