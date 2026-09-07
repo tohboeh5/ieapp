@@ -11,7 +11,7 @@ features:
       - id: documentation
         role: documentation
         facet: documentation
-        responsibility: Keep the operator guides, testing contracts, version declarations, and legacy registries connected as repository documentation artifacts. The legacy registries remain read-only migration evidence for this focused slice.
+        responsibility: Keep the operator guides, testing contracts, and version declarations connected as repository documentation artifacts.
         targets:
           - id: operations-guide
             adapter: declared
@@ -193,7 +193,7 @@ features:
       - id: migrated-ops-tail
         role: evidence
         facet: operations
-        responsibility: Connect the next migrated Operations requirements to generic repository artifacts and exact verification evidence. Remaining legacy Operations records continue as migration evidence until later slices complete the domain.
+        responsibility: Connect the migrated Operations requirements to generic repository artifacts and exact verification evidence.
         targets:
           - id: pull-request-template
             adapter: declared
