@@ -110,7 +110,7 @@ test.describe("UI page screenshot export @screenshot", () => {
 });
 
 async function loadUiPageSpecs(): Promise<UiPageSpec[]> {
-  const pagesDir = path.resolve(process.cwd(), "../docs/spec/ui/pages");
+  const pagesDir = path.resolve(process.cwd(), "../frontend/src/spec/pages");
   const files = (await fs.readdir(pagesDir)).filter((file) =>
     file.endsWith(".yaml")
   );
