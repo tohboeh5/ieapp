@@ -309,6 +309,8 @@ inventory:
             - docs/version/changelog/alpha.yaml
             - scripts/ci/mitase-check.sh
             - scripts/verify-release-container-quickstart.sh
+            - Dockerfile
+            - e2e/scripts/run-e2e.sh
             - tools/knowledge_compatibility.ts
             - tools/knowledge_compatibility_test.ts
             - tools/coverage_gates_test.ts
