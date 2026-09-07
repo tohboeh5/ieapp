@@ -65,23 +65,12 @@ describe("executable documentation sources", () => {
     }
   });
 
-  test("REQ-API-004: feature registry files and implementation paths resolve", async () => {
+  test("REQ-API-004: legacy feature registries are retired", async () => {
+    // Mitase owns the feature graphs now. This guard keeps the retired
+    // legacy feature registry index from returning as a second authority.
     const featureRoot = path.join(specRoot, "features");
-    const registry = parse(
-      await fs.readFile(path.join(featureRoot, "features.yaml"), "utf8"),
-    ) as { files?: Array<{ file: string }> };
-
-    for (const entry of registry.files ?? []) {
-      const featurePath = path.join(featureRoot, entry.file);
-      await expectPath(featurePath, entry.file);
-      const feature = parse(await fs.readFile(featurePath, "utf8"));
-      for (const implementationPath of collectFileValues(feature)) {
-        await expectPath(
-          path.resolve(repoRoot, implementationPath),
-          entry.file,
-        );
-      }
-    }
+    const entries = await fs.readdir(featureRoot);
+    expect(entries).not.toContain("features.yaml");
   });
 
   test("REQ-API-013: MCP documentation describes the shipped semantic facade", async () => {
@@ -212,23 +201,4 @@ async function yamlFilesRecursively(
 async function expectPath(filePath: string, owner: string): Promise<void> {
   await expect(fs.stat(filePath), `${owner}: missing ${filePath}`).resolves
     .toBeDefined();
-}
-
-function collectFileValues(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.flatMap(collectFileValues);
-  }
-  if (!value || typeof value !== "object") {
-    return [];
-  }
-
-  const files: string[] = [];
-  for (const [key, child] of Object.entries(value)) {
-    if (key === "file" && typeof child === "string") {
-      files.push(child);
-    } else {
-      files.push(...collectFileValues(child));
-    }
-  }
-  return files;
 }
