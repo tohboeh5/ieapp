@@ -39,7 +39,7 @@ policies:
       - id: design-references
         role: documentation
         facet: design-reference
-        responsibility: Preserve the canonical architecture and data portability references for this policy.
+        responsibility: Preserve the canonical architecture and data portability references for this policy. The legacy SQL feature document is retired; the execution contract lives in the REST and SQL-session architecture documents.
         targets:
           - id: architecture-overview
             adapter: declared
@@ -49,11 +49,6 @@ policies:
           - id: data-model-overview
             adapter: declared
             path: docs/architecture/data-model/overview.md
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-001#rule.governance }]
-          - id: feature-sql
-            adapter: declared
-            path: docs/spec/features/sql.md
             selector: { kind: file }
             claims: [{ kind: documents, anchor: POL-001#rule.governance }]
           - id: sql-sessions
