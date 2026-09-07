@@ -184,7 +184,6 @@ inventory:
         declared:
           roots:
             - AGENTS.md
-            - docs/spec/index.md
             - docs/mitase/philosophies/foundation.yaml
             - docs/mitase/policies/policies.yaml
             - docs/mitase/requirements/search.yaml
@@ -240,7 +239,6 @@ inventory:
             - docs/architecture/data-model/directory-layout.yaml
             - docs/architecture/data-model/file-schemas.yaml
             - docs/architecture/contracts/derived-relations.md
-            - docs/spec/features/index.md
             - docs/architecture/testing/strategy.md
             - docs/architecture/testing/ci-cd.md
             - docs/architecture/product/success-metrics.md
@@ -249,7 +247,6 @@ inventory:
             - docs/architecture/security/sandbox.md
             - docs/architecture/security/dependency-audit.md
             - docs/architecture/security/authentication-overview.yaml
-            - docs/spec/ui/index.md
             - frontend/src/spec/pages/space-assets.yaml
             - frontend/src/spec/pages/space-dashboard.yaml
             - frontend/src/spec/pages/space-entries-object.yaml

@@ -9,9 +9,8 @@ const specRoot = path.join(repoRoot, "docs/spec");
 describe("executable documentation sources", () => {
   test("REQ-OPS-003: legacy requirement registries are retired", async () => {
     // Mitase owns requirement taxonomy now. This guard keeps the retired
-    // docs/spec requirement registries from returning as a second authority.
-    const requirementDir = path.join(specRoot, "requirements");
-    expect(await yamlFiles(requirementDir)).toEqual([]);
+    // docs/spec tree from returning as a second authority.
+    await expect(fs.stat(specRoot)).rejects.toThrow();
   });
 
   test("REQ-OPS-004: version statuses agree with their tasks and canonical sources", async () => {
@@ -67,10 +66,8 @@ describe("executable documentation sources", () => {
 
   test("REQ-API-004: legacy feature registries are retired", async () => {
     // Mitase owns the feature graphs now. This guard keeps the retired
-    // legacy feature registry index from returning as a second authority.
-    const featureRoot = path.join(specRoot, "features");
-    const entries = await fs.readdir(featureRoot);
-    expect(entries).not.toContain("features.yaml");
+    // docs/spec tree from returning as a second authority.
+    await expect(fs.stat(specRoot)).rejects.toThrow();
   });
 
   test("REQ-API-013: MCP documentation describes the shipped semantic facade", async () => {
