@@ -235,16 +235,11 @@ policies:
       - id: design-references
         role: documentation
         facet: design-reference
-        responsibility: Preserve the frontend interface and UI references for this policy.
+        responsibility: Preserve the frontend interface and canonical UI page references for this policy. The legacy UI overview page is retired; UI semantics are owned by the canonical frontend graph.
         targets:
           - id: architecture-interface
             adapter: declared
             path: docs/architecture/contracts/frontend-backend-interface.md
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-006#rule.governance }]
-          - id: ui-overview
-            adapter: declared
-            path: docs/spec/ui/index.md
             selector: { kind: file }
             claims: [{ kind: documents, anchor: POL-006#rule.governance }]
           - id: ui-pages
@@ -277,16 +272,11 @@ policies:
       - id: design-references
         role: documentation
         facet: design-reference
-        responsibility: Preserve the data-model and UI references for typed Entry and Form schema governance. Legacy story files are retired; user intent is owned by the canonical requirement graph.
+        responsibility: Preserve the data-model reference for typed Entry and Form schema governance. Legacy story files and the legacy UI overview page are retired; user intent and UI semantics are owned by the canonical graphs.
         targets:
           - id: data-model-schema
             adapter: declared
             path: docs/architecture/data-model/file-schemas.yaml
-            selector: { kind: file }
-            claims: [{ kind: documents, anchor: POL-007#rule.governance }]
-          - id: ui-pages
-            adapter: declared
-            path: docs/spec/ui/index.md
             selector: { kind: file }
             claims: [{ kind: documents, anchor: POL-007#rule.governance }]
   - id: POL-008
@@ -507,11 +497,11 @@ policies:
       - id: specification-first-boundary
         role: evidence
         facet: governance
-        responsibility: Record the permanent specification map and its specification-first change boundary.
+        responsibility: Record the permanent documentation map and its specification-first change boundary. The legacy specification index is retired; the canonical Mitase graph is the specification authority.
         targets:
           - id: specification-first-evidence
             adapter: declared
-            path: docs/spec/index.md
+            path: docs/index.md
             selector: { kind: file }
             claims:
               - kind: evidences

@@ -240,85 +240,23 @@ export default defineConfig({
               ],
             },
             {
+              label: "Contracts",
+              collapsed: true,
+              items: [
+                {
+                  autogenerate: {
+                    directory: docsSidebarDirectory("architecture/contracts"),
+                  },
+                },
+              ],
+            },
+            {
               label: "Quality",
               collapsed: true,
               items: [
                 {
                   autogenerate: {
                     directory: docsSidebarDirectory("architecture/quality"),
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        {
-          label: "Specification",
-          collapsed: true,
-          items: [
-            { slug: "docs/spec/index" },
-            {
-              label: "Core model",
-              collapsed: true,
-              items: [
-                {
-                  autogenerate: {
-                    directory: docsSidebarDirectory("spec/features"),
-                    collapsed: true,
-                  },
-                },
-              ],
-            },
-            {
-              label: "Interfaces",
-              collapsed: true,
-              items: [
-                {
-                  autogenerate: {
-                    directory: docsSidebarDirectory("spec/ui"),
-                    collapsed: true,
-                  },
-                },
-              ],
-            },
-            {
-              label: "Requirements & stories",
-              collapsed: true,
-              items: [
-                {
-                  autogenerate: {
-                    directory: docsSidebarDirectory("spec/requirements"),
-                    collapsed: true,
-                  },
-                },
-                {
-                  autogenerate: {
-                    directory: docsSidebarDirectory("spec/stories"),
-                    collapsed: true,
-                  },
-                },
-              ],
-            },
-            {
-              label: "Architecture contracts",
-              collapsed: true,
-              items: [
-                {
-                  autogenerate: {
-                    directory: docsSidebarDirectory("architecture/contracts"),
-                    collapsed: true,
-                  },
-                },
-              ],
-            },
-            {
-              label: "Operations & quality",
-              collapsed: true,
-              items: [
-                {
-                  autogenerate: {
-                    directory: docsSidebarDirectory("spec/policies"),
-                    collapsed: true,
                   },
                 },
               ],

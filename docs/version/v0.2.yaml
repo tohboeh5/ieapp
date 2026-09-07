@@ -9,7 +9,7 @@ milestones:
     status: planned
     source:
       - docs/version/v0.2/user-controlled-view.yaml
-      - docs/spec/ui/index.md
+      - frontend/src/spec/pages/space-home.yaml
     phases:
       - id: design
         status: planned
