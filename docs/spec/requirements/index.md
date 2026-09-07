@@ -13,7 +13,10 @@ than being inferred from the existence of a binding.
 
 Operations requirements `REQ-OPS-001` through `REQ-OPS-028`, `REQ-OPS-030`,
 `REQ-OPS-031`, together with the inserted `REQ-OPS-043` and `REQ-OPS-044`
-gates, are now canonical in `docs/mitase/requirements/ops.yaml`.
+gates, are now canonical in `docs/mitase/requirements/ops.yaml`. The superseded
+hook-installation and alternate-runtime records (`REQ-OPS-032`, `REQ-OPS-033`)
+are absorbed by the canonical root task surface and workspace quality gates and
+carry no separate canonical requirement.
 The corresponding records in the legacy `requirements/ops.yaml` file are
 read-only migration evidence, not a second semantic authority; later
 Operations requirements remain there until their focused Mitase slices are
