@@ -4,7 +4,7 @@ import {
   startDocsiteServer,
 } from "./support/docsite-server.ts";
 
-const docPath = "/docs/spec/";
+const docPath = "/docs/architecture/";
 const editLinkDocPath = "/docs/guide/automate/cli/";
 const homepagePath = "/";
 
@@ -38,7 +38,7 @@ test.describe("Docsite navigation layout", () => {
       "data-mobile-menu-expanded",
       "",
     );
-    await expectSidebarToContainLinks(page, { expectSpecificationLink: true });
+    await expectSidebarToContainLinks(page, { expectContractsLink: true });
   });
 
   test("REQ-E2E-005: the mobile menu closes with Escape", async ({ page }) => {
@@ -68,7 +68,7 @@ test.describe("Docsite navigation layout", () => {
     await expect(page.getByRole("button", { name: "Menu" })).toBeHidden();
     await expect(page.locator("#starlight__sidebar")).toBeVisible();
     await expect(page.locator(".right-sidebar-container")).toBeVisible();
-    await expectSidebarToContainLinks(page, { expectSpecificationLink: true });
+    await expectSidebarToContainLinks(page, { expectContractsLink: true });
 
     await page.goto(buildDocsiteUrl(editLinkDocPath), {
       waitUntil: "networkidle",
@@ -109,14 +109,14 @@ test.describe("Docsite navigation layout", () => {
     await expect(page.getByText("A private, portable knowledge space"))
       .toBeVisible();
     await page.getByRole("button", { name: "Menu" }).click();
-    await expectSidebarToContainLinks(page, { expectSpecificationLink: false });
+    await expectSidebarToContainLinks(page, { expectContractsLink: false });
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(buildDocsiteUrl(homepagePath), {
       waitUntil: "networkidle",
     });
     await expect(page.locator("#starlight__sidebar")).toBeVisible();
-    await expectSidebarToContainLinks(page, { expectSpecificationLink: false });
+    await expectSidebarToContainLinks(page, { expectContractsLink: false });
   });
 });
 
@@ -129,7 +129,7 @@ function buildDocsiteUrl(path: string): string {
 
 async function expectSidebarToContainLinks(
   page: Page,
-  options: { expectSpecificationLink: boolean },
+  options: { expectContractsLink: boolean },
 ): Promise<void> {
   const sidebar = page.locator("#starlight__sidebar");
 
@@ -147,12 +147,12 @@ async function expectSidebarToContainLinks(
   await expect(
     sidebar.getByRole("link", { name: "Architecture North Star" }),
   ).toBeVisible();
-  await expect(sidebar.getByText("Specification", { exact: true }).first())
+  await expect(sidebar.getByText("Contracts", { exact: true }).first())
     .toBeVisible();
-  if (options.expectSpecificationLink) {
-    await openSidebarGroup(page, "Specification", "Ugoite specification index");
+  if (options.expectContractsLink) {
+    await openSidebarGroup(page, "Contracts", "Architecture decisions");
     await expect(
-      sidebar.getByRole("link", { name: "Ugoite specification index" }),
+      sidebar.getByRole("link", { name: "Architecture decisions" }),
     ).toBeVisible();
   }
 }
@@ -169,4 +169,13 @@ async function openSidebarGroup(
   }
   const summary = sidebar.locator("summary").filter({ hasText: label }).first();
   await summary.click();
+  // The click toggles the group: when it starts expanded (for example, the
+  // section of the current page), one click collapses it. Reopen in that case.
+  const ownOpen = await summary.evaluate((element) => {
+    const details = element.closest("details");
+    return details ? details.open : true;
+  });
+  if (!ownOpen && !(await link.isVisible())) {
+    await summary.click();
+  }
 }

@@ -42,7 +42,8 @@ small so it cannot drift into a second manual.
   [REST and OpenAPI](docs/architecture/api/rest.md), and the current
   [MCP surface](docs/architecture/api/mcp.md)
 - **Understand:** [Architecture](docs/architecture/index.md)
-- **Verify:** [Executable specification](docs/spec/index.md)
+- **Verify:** [Executable specification](docs/mitase/requirements/ops.yaml)
+  with `bash scripts/ci/mitase-check.sh`
 
 For repository development, install [mise](https://mise.jdx.dev/) and run:
 
@@ -139,7 +140,8 @@ future scope.
 - Architecture:
   [`docs/architecture/principles/north-star.md`](docs/architecture/principles/north-star.md)
 - Operator guides: [`docs/guide`](docs/guide)
-- Executable specification registry: [`docs/spec`](docs/spec)
+- Executable specification: [`docs/mitase`](docs/mitase), verified by
+  `bash scripts/ci/mitase-check.sh`
 
 The server-provided `crates/ugoite-server/src/openapi.json`, served at
 `/openapi.json`, is authoritative. `cargo run -p xtask -- openapi-check`
