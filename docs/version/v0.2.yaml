@@ -21,7 +21,6 @@ milestones:
     status: planned
     source:
       - docs/version/v0.2/ai-enabled-and-ai-used.yaml
-      - docs/spec/stories/experimental.yaml
       - docs/architecture/api/mcp.md
     phases:
       - id: design
