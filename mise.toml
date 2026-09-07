@@ -251,6 +251,7 @@ run = [
   "cargo run -p xtask -- docs-current-stack-check",
   { task = "check:supported" },
   "cargo run -p xtask -- legacy-auth-check",
+  "cargo run -p xtask -- space-version-check",
   { task = "check:mitase" },
 ]
 

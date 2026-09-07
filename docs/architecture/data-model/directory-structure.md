@@ -51,7 +51,7 @@ relation directories are lazy and are not part of bootstrap.
 
 ```json
 {
-  "schema_version": 3,
+  "space_version": "0.1",
   "space_id": "019c1234-5678-7abc-8def-0123456789ab",
   "space_uid": "019c1234-5678-7abc-8def-0123456789ab",
   "slug": "space-main",
@@ -64,7 +64,13 @@ relation directories are lazy and are not part of bootstrap.
 }
 ```
 
-The typed `SpaceMeta` view exposes only portable identity and creation metadata;
+`space_version` is the stable Space compatibility identity. It is classified
+before version-specific metadata validation; missing, malformed, or
+unsupported versions fail closed with `UNSUPPORTED_SPACE_VERSION` before
+authoritative mutation, and opening a Space never implicitly migrates it.
+
+The typed `SpaceMeta` view exposes portable identity, creation metadata, and
+`space_version`;
 `space_uid`/`id` are the immutable machine identity, `slug` is the constrained
 URL/storage identifier, and `name` is the user-facing display name and may use
 Unicode;

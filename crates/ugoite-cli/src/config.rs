@@ -308,11 +308,21 @@ fn validate_local_space_candidate(
 ) -> Result<serde_json::Value> {
     let metadata: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path.join("meta.json"))?)?;
+    // Share the bootstrap compatibility classification with server/core
+    // instead of maintaining independent version rules here.
+    if ugoite_domain::space::classify_space_version(&metadata).is_err() {
+        let detected = ugoite_domain::space::raw_space_version(&metadata);
+        return Err(ugoite_core::error::AppError::unsupported_space_version(
+            detected.as_deref(),
+            ugoite_domain::space::SUPPORTED_SPACE_VERSIONS,
+        )
+        .into());
+    }
     let object = metadata
         .as_object()
         .context("Space metadata must be an object")?;
     const SPACE_METADATA_FIELDS: &[&str] = &[
-        "schema_version",
+        "space_version",
         "space_id",
         "space_uid",
         "slug",
@@ -330,9 +340,9 @@ fn validate_local_space_candidate(
         bail!("Space metadata contains unsupported fields");
     }
     if object
-        .get("schema_version")
-        .and_then(serde_json::Value::as_u64)
-        != Some(3)
+        .get("space_version")
+        .and_then(serde_json::Value::as_str)
+        != Some(ugoite_domain::space::CURRENT_SPACE_VERSION)
         || object.get("space_id").and_then(serde_json::Value::as_str) != Some(directory_id)
         || object.get("id").and_then(serde_json::Value::as_str) != Some(directory_id)
         || object

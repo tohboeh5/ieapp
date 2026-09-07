@@ -31,6 +31,7 @@ export interface Space {
   slug?: string;
   name: string;
   created_at: string;
+  space_version?: string;
   storage?: SpaceStorage;
   storage_config?: SpaceStorageConfig;
   settings?: Record<string, unknown>;
