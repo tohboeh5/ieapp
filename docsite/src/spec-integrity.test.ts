@@ -43,9 +43,9 @@ describe("executable documentation sources", () => {
         }
       }
     }
-    // Tracks the not-yet-retired legacy registries (Security and Storage).
-    // Retired domains (including Operations) are owned by docs/mitase now.
-    expect(ids.size).toBeGreaterThan(20);
+    // Tracks the not-yet-retired legacy registry (Storage).
+    // Retired domains (including Operations and Security) are owned by docs/mitase now.
+    expect(ids.size).toBeGreaterThan(10);
   });
 
   test("REQ-OPS-004: version statuses agree with their tasks and canonical sources", async () => {

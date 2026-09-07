@@ -398,12 +398,10 @@ fn docs_current_stack_check() -> Result<()> {
             }
         }
     }
-    // The Operations deferred-capability record (REQ-OPS-015) is canonical in
-    // docs/mitase now; only not-yet-migrated legacy registries are checked here.
-    let deferred_requirements = [(
-        "docs/spec/requirements/security.yaml",
-        ["REQ-SEC-009"].as_slice(),
-    )];
+    // All deferred-capability records once checked here (REQ-OPS-015,
+    // REQ-SEC-009) are canonical in docs/mitase now. Mitase owns the
+    // planned/implemented semantics; no legacy deferred check remains.
+    let deferred_requirements: [(&str, &[&str]); 0] = [];
     for (path, ids) in deferred_requirements {
         let text = fs::read_to_string(path).with_context(|| format!("read {path}"))?;
         for block in text.split("- set_id:").skip(1) {
@@ -434,26 +432,33 @@ fn docs_current_stack_check() -> Result<()> {
 }
 
 #[derive(Debug, Deserialize)]
-struct RequirementCatalog {
-    requirements: Vec<RequirementRecord>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RequirementRecord {
+struct MitaseRequirement {
     id: String,
     status: String,
-    verification: String,
     #[serde(default)]
-    tests: Vec<TestReference>,
+    bindings: Vec<MitaseBinding>,
 }
 
 #[derive(Debug, Deserialize)]
-struct TestReference {
-    file: String,
+struct MitaseBinding {
     #[serde(default)]
-    cases: Vec<String>,
+    targets: Vec<MitaseTarget>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MitaseTarget {
     #[serde(default)]
-    tests: Vec<String>,
+    claims: Vec<MitaseClaim>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MitaseClaim {
+    kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MitaseRequirements {
+    requirements: Vec<MitaseRequirement>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -472,9 +477,12 @@ struct ReleasePhase {
 }
 
 fn supported_check() -> Result<()> {
-    let security_text = fs::read_to_string("docs/spec/requirements/security.yaml")
-        .context("read security requirements")?;
-    let security: RequirementCatalog =
+    // The legacy Security requirement registry is retired. Mitase owns the
+    // requirement semantics and reference validation; this check only keeps the
+    // v0.1 tracker consistent with the canonical Mitase authority.
+    let security_text = fs::read_to_string("docs/mitase/requirements/security.yaml")
+        .context("read canonical security requirements")?;
+    let security: MitaseRequirements =
         serde_yaml::from_str(&security_text).context("parse security requirements")?;
     let requirements = security
         .requirements
@@ -510,43 +518,39 @@ fn supported_check() -> Result<()> {
     }
 
     for id in &supported_ids {
-        let requirement = requirements
-            .get(id)
-            .with_context(|| format!("v0.1 requirement {id} is missing from security.yaml"))?;
+        let requirement = requirements.get(id).with_context(|| {
+            format!("v0.1 requirement {id} is missing from the canonical Mitase security graph")
+        })?;
         if requirement.status != "implemented" {
-            bail!("supported requirement {id} must have status: implemented");
+            bail!("supported requirement {id} must have status: implemented in docs/mitase");
         }
-        if requirement.verification != "traced" {
-            bail!("supported requirement {id} must have verification: traced");
+        let verified = requirement
+            .bindings
+            .iter()
+            .flat_map(|binding| {
+                binding
+                    .targets
+                    .iter()
+                    .flat_map(|target| target.claims.iter())
+            })
+            .any(|claim| claim.kind == "verifies");
+        if !verified {
+            bail!("supported requirement {id} must carry an exact Mitase verification claim");
         }
-        let mut concrete_case_count = 0usize;
-        for test in &requirement.tests {
-            let path = Path::new(&test.file);
-            if !path.is_file() {
-                bail!(
-                    "supported requirement {id} references missing test file {}",
-                    test.file
-                );
-            }
-            let source = fs::read_to_string(path)
-                .with_context(|| format!("read requirement test reference {}", test.file))?;
-            for case in test.cases.iter().chain(test.tests.iter()) {
-                concrete_case_count += 1;
-                if !source.contains(case) {
-                    bail!(
-                        "supported requirement {id} references missing test case {case} in {}",
-                        test.file
-                    );
-                }
-            }
-        }
-        if requirement.tests.is_empty() || concrete_case_count == 0 {
-            bail!("supported requirement {id} must reference a concrete test case");
+    }
+    for id in &future_ids {
+        let requirement = requirements.get(id).with_context(|| {
+            format!(
+                "v0.1 future requirement {id} is missing from the canonical Mitase security graph"
+            )
+        })?;
+        if requirement.status != "planned" {
+            bail!("future requirement {id} must have status: planned in docs/mitase");
         }
     }
 
     println!(
-        "supported contract: {} requirements traced; authentication surface is validated by Mitase",
+        "supported contract: {} requirements traced in docs/mitase; authentication surface is validated by Mitase",
         supported_ids.len()
     );
     Ok(())
