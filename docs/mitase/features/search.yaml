@@ -63,7 +63,7 @@ features:
       - id: server
         role: operation
         facet: backend
-        responsibility: Expose the Search HTTP operations through the backend adapter; Space authorization remains the security requirement owned by the unmigrated Security domain.
+        responsibility: Expose the Search HTTP operations through the backend adapter; Space authorization remains governed by the canonical Security requirement.
         targets:
           - id: search-handler
             adapter: rust
