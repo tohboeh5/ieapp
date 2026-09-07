@@ -638,6 +638,81 @@ requirements:
                 covers: [FEAT-SEC-001#binding.server/target.cors-policy]
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-server, harness: api_contract, test: req_sec_010_keeps_canonical_origin_csrf_guard_separate_from_cors_allowlist } }
 
+  - id: REQ-SEC-011
+    title: CLI Remote Endpoint Transport Safety
+    description: CLI server-backed endpoint configuration rejects non-loopback cleartext http URLs, keeps loopback cleartext available for local development, warns when legacy insecure remote endpoints are still saved, and refuses to treat such endpoints as active topology before any credentialed request is sent.
+    priority: high
+    status: implemented
+    criteria:
+      - id: loopback-only-cleartext
+        kind: security
+        statement: Endpoint configuration accepts loopback cleartext URLs for local development while rejecting non-loopback cleartext http URLs for API and backend endpoints.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance]
+      - id: insecure-endpoint-refusal
+        kind: security
+        statement: Saved legacy insecure remote endpoints produce warnings and are refused as active topology before any credentialed request can be sent to them.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance]
+    bindings:
+      - id: endpoint-transport-verification
+        role: verification
+        facet: verification
+        responsibility: Verify cleartext rejection, loopback allowance, legacy warnings, and pre-request refusal through exact CLI integration tests.
+        targets:
+          - id: reject-api-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_cli_req_sec_011_endpoint_transport.rs
+            selector: { kind: test, name: test_cli_req_sec_011_config_set_rejects_non_loopback_cleartext_api_urls }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-011#criterion.loopback-only-cleartext
+                covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_cli_req_sec_011_endpoint_transport, test: test_cli_req_sec_011_config_set_rejects_non_loopback_cleartext_api_urls } }
+          - id: reject-backend-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_cli_req_sec_011_endpoint_transport.rs
+            selector: { kind: test, name: test_cli_req_sec_011_config_set_rejects_non_loopback_cleartext_backend_urls }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-011#criterion.loopback-only-cleartext
+                covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_cli_req_sec_011_endpoint_transport, test: test_cli_req_sec_011_config_set_rejects_non_loopback_cleartext_backend_urls } }
+          - id: loopback-allow-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_cli_req_sec_011_endpoint_transport.rs
+            selector: { kind: test, name: test_cli_req_sec_011_config_set_allows_loopback_cleartext_development_endpoints }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-011#criterion.loopback-only-cleartext
+                covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_cli_req_sec_011_endpoint_transport, test: test_cli_req_sec_011_config_set_allows_loopback_cleartext_development_endpoints } }
+          - id: legacy-warn-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_cli_req_sec_011_endpoint_transport.rs
+            selector: { kind: test, name: test_cli_req_sec_011_config_current_warns_about_legacy_insecure_remote_endpoints }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-011#criterion.insecure-endpoint-refusal
+                covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_cli_req_sec_011_endpoint_transport, test: test_cli_req_sec_011_config_current_warns_about_legacy_insecure_remote_endpoints } }
+          - id: refuse-before-request-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_cli_req_sec_011_endpoint_transport.rs
+            selector: { kind: test, name: test_cli_req_sec_011_server_backed_commands_refuse_legacy_insecure_remote_endpoints_before_requests_are_sent }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-011#criterion.insecure-endpoint-refusal
+                covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_cli_req_sec_011_endpoint_transport, test: test_cli_req_sec_011_server_backed_commands_refuse_legacy_insecure_remote_endpoints_before_requests_are_sent } }
+          - id: config-helper-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_endpoint_config.rs
+            selector: { kind: test, name: test_config_set_req_sec_011_rejects_non_loopback_cleartext_urls }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-011#criterion.loopback-only-cleartext
+                covers: [FEAT-SEC-005#binding.cli/target.endpoint-config]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_endpoint_config, test: test_config_set_req_sec_011_rejects_non_loopback_cleartext_urls } }
+
   - id: REQ-SEC-014
     title: Account Self-Recovery
     description: An active HumanAccount may replace its Node-local Passkey credentials only through an explicitly enrolled recovery-only TOTP and one valid offline Recovery Code, while preserving the HumanAccount and its Space bindings.
@@ -802,6 +877,76 @@ requirements:
                 criterion: REQ-SEC-014#criterion.recovery-audit-attribution
                 covers: [FEAT-SEC-003#binding.server/target.node-audit]
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-server, harness: api_contract, test: req_sec_014_openapi_publishes_account_recovery_surfaces } }
+
+  - id: REQ-SEC-015
+    title: Remote CLI Device Authentication
+    description: The packaged Linux CLI authenticates to one Remote Node through browser-approved device authorization, a fresh P-256 device key, opaque short-lived access credentials, rotating refresh credentials, and DPoP. REST credentials omit resource and use the Node issuer audience; MCP credentials use the exact issuer plus /mcp resource and audience. Credentials are Node-bound and action-scoped and reject cross-resource use. CLI logout deletes local credentials and keys; remote asset upload and generic OAuth compatibility remain future scope.
+    priority: high
+    status: implemented
+    criteria:
+      - id: device-authorization-flow
+        kind: security
+        statement: Device login completes browser-approved device authorization with a fresh device key, short-lived access credentials, rotating refresh credentials, DPoP-bound requests, and a default action set that excludes unapproved dangerous actions.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance]
+      - id: resource-bound-credentials
+        kind: security
+        statement: REST credentials carry no resource with the Node issuer audience while MCP credentials carry the exact issuer /mcp resource and audience; credentials reject cross-resource use and the authenticated MCP route enforces binding, DPoP, ACL, and human-mutation boundaries.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance, POL-015#rule.governance]
+      - id: local-logout-boundary
+        kind: security
+        statement: CLI logout is local credential and key deletion; remote asset upload and generic OAuth client compatibility remain explicitly future scope.
+        governed_by: [POL-004#rule.governance, POL-011#rule.governance]
+    bindings:
+      - id: device-auth-verification
+        role: verification
+        facet: verification
+        responsibility: Verify DPoP request construction, the default device-login action boundary, and cross-resource grant rejection through exact CLI and server tests. The authenticated MCP binding half is verified by the existing REQ-SEC-006 claim on the same MCP route test; remote asset upload remains planned and unverified.
+        targets:
+          - id: dpop-query-case
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/auth.rs
+            selector: { kind: test, name: tests::dpop_htu_excludes_query_and_fragment }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-015#criterion.device-authorization-flow
+                covers: [FEAT-SEC-005#binding.cli/target.device-auth]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-cli, test: commands::auth::tests::dpop_htu_excludes_query_and_fragment } }
+          - id: dpop-path-case
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/auth.rs
+            selector: { kind: test, name: tests::dpop_htu_preserves_path }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-015#criterion.device-authorization-flow
+                covers: [FEAT-SEC-005#binding.cli/target.device-auth]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-cli, test: commands::auth::tests::dpop_htu_preserves_path } }
+          - id: rest-payload-case
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/auth.rs
+            selector: { kind: test, name: tests::rest_oauth_payload_omits_resource }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-015#criterion.resource-bound-credentials
+                covers: [FEAT-SEC-005#binding.cli/target.device-auth]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-cli, test: commands::auth::tests::rest_oauth_payload_omits_resource } }
+          - id: default-actions-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/integration_test.rs
+            selector: { kind: test, name: default_device_login_actions_exclude_unapproved_dangerous_actions }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-015#criterion.device-authorization-flow
+                covers: [FEAT-SEC-005#binding.cli/target.device-auth]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: integration_test, test: default_device_login_actions_exclude_unapproved_dangerous_actions } }
+          - id: resource-mismatch-case
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: authentication_regression_tests::oauth_resource_mismatch_preserves_authorization_code_device_and_refresh_grants }
+            claims:
+              - kind: verifies
+                criterion: REQ-SEC-015#criterion.resource-bound-credentials
+                covers: [FEAT-SEC-005#binding.server/target.device-grants]
+                runner: { runner: cargo-test-unit, arguments: { package: ugoite-server, test: authentication_regression_tests::oauth_resource_mismatch_preserves_authorization_code_device_and_refresh_grants } }
 
   - id: REQ-SEC-016
     title: External identity linking
