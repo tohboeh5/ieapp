@@ -77,7 +77,7 @@ describe("ListPanel", () => {
       expect(onCreate).toHaveBeenCalled();
     });
 
-    it("REQ-FE-037: disables new entry when no forms exist", () => {
+    it("REQ-FE-068: disables new entry when no forms exist", () => {
       const [filterForm, setFilterForm] = createSignal("");
       render(() => (
         <ListPanel

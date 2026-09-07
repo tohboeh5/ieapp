@@ -1878,7 +1878,7 @@ requirements:
 
   - id: REQ-FE-067
     title: Unified Form and Entry Workspace
-    description: The Forms route presents one ordinary Form selector and the selected Form Entry grid, the plain Entries route remains a portable-client compatibility surface without redirecting to Forms, SQL-session results remain dedicated, and Form/Entry dialogs retain usable action layout and visible icon affordances.
+    description: The Forms route presents one ordinary Form selector and the selected Form Entry grid, the plain Entries route remains a portable-client compatibility surface without redirecting to Forms, SQL-session results remain dedicated, and Form/Entry dialogs retain usable action layout and visible icon affordances. Legacy REQ-FE-018 (nested-routing high-performance Forms view) is superseded by this unified workspace and carries no separate requirement.
     priority: high
     status: implemented
     criteria:
@@ -2597,3 +2597,144 @@ requirements:
                 criterion: REQ-FE-069#criterion.date-label-rendering
                 covers: [FEAT-FE-004#binding.frontend/target.search-client]
                 runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/search.test.tsx", test: "REQ-FE-069: renders human-readable updated dates in search history" } }
+
+  - id: REQ-FE-068
+    title: Form-Driven Entry Creation
+    description: Creating a new entry requires selecting a Form and is disabled when no Forms exist. The create dialog shows the selected Form fields, blocks submission on empty required fields, generates the entry from the Form template with correct frontmatter, preserves user markdown, and excludes reserved or deprecated Forms from ordinary selection while permitting ordinary user Forms. New spaces surface a user-creatable default Form for first-entry authoring, and onboarding counts only user-creatable Forms, directing the user to create a Form when none exist. Absorbs legacy REQ-FE-037 clauses for Form selection, template generation, required-field blocking, markdown construction, reserved-form exclusion, and first-entry onboarding; the plain Entry list clause remains with REQ-FE-004 and REQ-FE-067.
+    priority: high
+    status: implemented
+    criteria:
+      - id: form-selection-gate
+        kind: behavior
+        statement: Entry creation requires selecting a Form and is disabled when no Forms exist.
+        governed_by: [POL-006#rule.governance, POL-009#rule.governance]
+      - id: template-generation
+        kind: behavior
+        statement: The create dialog generates the entry from the selected Form template with correct frontmatter, preserving user markdown and field values across editing.
+        governed_by: [POL-006#rule.governance, POL-009#rule.governance]
+      - id: required-field-blocking
+        kind: behavior
+        statement: Submission with empty required fields is blocked with visible required-field errors while keeping the form open.
+        governed_by: [POL-006#rule.governance, POL-009#rule.governance]
+      - id: reserved-form-exclusion
+        kind: behavior
+        statement: Reserved or deprecated Forms are not defaulted or required in entry creation flows, while ordinary user Forms remain permitted.
+        governed_by: [POL-006#rule.governance, POL-009#rule.governance]
+      - id: first-entry-onboarding
+        kind: behavior
+        statement: First-entry authoring starts from a user-creatable Form, distinguishes empty from failed Form loads, and directs the user to create a Form when none exist.
+        governed_by: [POL-006#rule.governance, POL-009#rule.governance, POL-013#rule.governance]
+    bindings:
+      - id: entry-creation-verification
+        role: verification
+        facet: verification
+        responsibility: Verify Form-gated creation, template generation, required-field blocking, reserved-form exclusion, and first-entry onboarding through exact frontend tests.
+        targets:
+          - id: selection-case
+            adapter: typescript
+            path: frontend/src/components/create-dialogs.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: requires form selection before creating an entry" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.form-selection-gate
+                covers: [FEAT-FE-004#binding.frontend/target.create-dialogs]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-068: requires form selection before creating an entry" } }
+          - id: no-forms-case
+            adapter: typescript
+            path: frontend/src/components/ListPanel.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: disables new entry when no forms exist" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.form-selection-gate
+                covers: [FEAT-FE-002#binding.frontend/target.list-panel]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/ListPanel.test.tsx, test: "REQ-FE-068: disables new entry when no forms exist" } }
+          - id: webform-submit-case
+            adapter: typescript
+            path: frontend/src/components/create-dialogs.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: submits in webform mode successfully" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.template-generation
+                covers: [FEAT-FE-004#binding.frontend/target.create-dialogs]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-068: submits in webform mode successfully" } }
+          - id: fields-build-case
+            adapter: typescript
+            path: frontend/src/lib/entry-input.test.ts
+            selector: { kind: test, name: "REQ-FE-068: builds from fields when __markdown is empty in markdown mode" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.template-generation
+                covers: [FEAT-FE-004#binding.frontend/target.entry-input]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/entry-input.test.ts, test: "REQ-FE-068: builds from fields when __markdown is empty in markdown mode" } }
+          - id: whitespace-case
+            adapter: typescript
+            path: frontend/src/lib/entry-input.test.ts
+            selector: { kind: test, name: "REQ-FE-068: preserves user markdown whitespace in markdown mode" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.template-generation
+                covers: [FEAT-FE-004#binding.frontend/target.entry-input]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/lib/entry-input.test.ts, test: "REQ-FE-068: preserves user markdown whitespace in markdown mode" } }
+          - id: required-block-case
+            adapter: typescript
+            path: frontend/src/components/create-dialogs.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: blocks submission when required fields are empty" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.required-field-blocking
+                covers: [FEAT-FE-004#binding.frontend/target.create-dialogs]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-068: blocks submission when required fields are empty" } }
+          - id: required-errors-case
+            adapter: typescript
+            path: frontend/src/components/create-dialogs.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: keeps the form open and shows required-field errors on submit" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.required-field-blocking
+                covers: [FEAT-FE-004#binding.frontend/target.create-dialogs]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-068: keeps the form open and shows required-field errors on submit" } }
+          - id: deprecated-exclusion-case
+            adapter: typescript
+            path: frontend/src/components/create-dialogs.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: does not default or require deprecated fields in webform mode" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.reserved-form-exclusion
+                covers: [FEAT-FE-004#binding.frontend/target.create-dialogs]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-068: does not default or require deprecated fields in webform mode" } }
+          - id: ordinary-form-case
+            adapter: typescript
+            path: frontend/src/components/create-dialogs.test.tsx
+            selector: { kind: test, name: "REQ-FE-068: permits an ordinary user form named Assets" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.reserved-form-exclusion
+                covers: [FEAT-FE-004#binding.frontend/target.create-dialogs]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/create-dialogs.test.tsx, test: "REQ-FE-068: permits an ordinary user form named Assets" } }
+          - id: fresh-space-case
+            adapter: typescript
+            path: frontend/src/routes/spaces/[space_id]/dashboard.test.tsx
+            selector: { kind: test, name: "opens Form creation and shows the walkthrough for a fresh Space" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.first-entry-onboarding
+                covers: [FEAT-FE-012#binding.frontend/target.dashboard-route]
+                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/dashboard.test.tsx", test: "opens Form creation and shows the walkthrough for a fresh Space" } }
+          - id: disabled-until-ready-case
+            adapter: typescript
+            path: frontend/src/routes/spaces/[space_id]/dashboard.test.tsx
+            selector: { kind: test, name: "shows a loading state and keeps entry creation disabled until forms are ready" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.first-entry-onboarding
+                covers: [FEAT-FE-012#binding.frontend/target.dashboard-route]
+                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/dashboard.test.tsx", test: "shows a loading state and keeps entry creation disabled until forms are ready" } }
+          - id: empty-vs-failed-case
+            adapter: typescript
+            path: frontend/src/routes/spaces/[space_id]/dashboard.test.tsx
+            selector: { kind: test, name: "distinguishes an empty form list from a failed form load" }
+            claims:
+              - kind: verifies
+                criterion: REQ-FE-068#criterion.first-entry-onboarding
+                covers: [FEAT-FE-012#binding.frontend/target.dashboard-route]
+                runner: { runner: frontend-vitest-file, arguments: { file: "src/routes/spaces/[space_id]/dashboard.test.tsx", test: "distinguishes an empty form list from a failed form load" } }
