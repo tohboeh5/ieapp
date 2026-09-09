@@ -916,7 +916,7 @@ async function verifyCli(): Promise<void> {
 }
 
 async function packageNpm(): Promise<void> {
-  const targetDir = pathJoin("target", "artifacts", "npm");
+  const targetDir = pathJoin(Deno.cwd(), "target", "artifacts", "npm");
   await Deno.mkdir(targetDir, { recursive: true });
   const result = await run("npm", [
     "pack",
