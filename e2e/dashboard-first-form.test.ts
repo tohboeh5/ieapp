@@ -46,19 +46,21 @@ test.describe("Dashboard starter-entry onboarding", () => {
 		await expect(page.locator("body")).toBeVisible();
 		await settleUiLoading(page);
 
-		await expect(page.getByRole("button", { name: "Entry" })).toBeEnabled();
+		await expect(
+			page.getByRole("button", { name: "Entry", exact: true }),
+		).toBeEnabled();
 		await expect(
 			page.getByText("Start by creating your first form."),
 		).toHaveCount(0);
 
-		await page.getByRole("button", { name: "Entry" }).click();
+		await page.getByRole("button", { name: "Entry", exact: true }).click();
 
 		await expect(
 			page.getByRole("heading", { name: "Create New Entry" }),
 		).toBeVisible({
 			timeout: 10_000,
 		});
-		await expect(page.locator("#entry-form")).toHaveValue("Entry");
+		await expect(page.locator("#entry-form-selector")).toHaveValue("Entry");
 		await page.getByLabel("Title").fill("Starter quick note");
 		await page.getByRole("button", { name: "Create" }).click();
 		await page.waitForURL(new RegExp(`/spaces/${createdSpaceId}/entries/[^/]+$`), {

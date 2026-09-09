@@ -251,7 +251,7 @@ test.describe("Entries CRUD", () => {
 		).toBeVisible({
 			timeout: 10_000,
 		});
-		await expect(page.locator("#entry-form")).toHaveValue("Entry");
+		await expect(page.locator("#entry-form-selector")).toHaveValue("Entry");
 	});
 
 	test("REQ-ENTRY-1872: form entry creation is one POST and one clean revision", async ({
@@ -449,8 +449,8 @@ test.describe("Entries CRUD", () => {
 
 		await page.getByLabel("Title").fill(taskTitle);
 		await page.getByLabel("Form").selectOption("Task");
-		const summaryInput = page.locator("#entry-field-0-summary");
-		const projectInput = page.locator("#entry-field-1-project");
+		const summaryInput = page.getByRole("textbox", { name: "Summary" });
+		const projectInput = page.getByRole("searchbox", { name: "Project" });
 		await expect(summaryInput).toBeVisible();
 		await summaryInput.fill("Choose the alpha project by search");
 		await expect(summaryInput).toHaveValue("Choose the alpha project by search");
