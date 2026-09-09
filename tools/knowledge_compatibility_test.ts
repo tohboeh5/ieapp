@@ -12,6 +12,7 @@ const compatibilityValidator = await Deno.readTextFile(
 const workflow = await Deno.readTextFile(
   ".github/workflows/pr-require-close-issue.yml",
 );
+const gate = await Deno.readTextFile("tools/pr_body_gate.ts");
 const ciWorkflow = await Deno.readTextFile(".github/workflows/ci.yml");
 const codeqlWorkflow = await Deno.readTextFile(".github/workflows/codeql.yml");
 const requiredStatusChecks = JSON.parse(
@@ -55,26 +56,27 @@ Deno.test("Knowledge Compatibility Review is a checked PR gate", () => {
     "ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}",
     "PR validator",
   );
+  requireText(workflow, "mise.toml", "PR validator");
   requireText(workflow, "tools/knowledge_compatibility.ts", "PR validator");
-  requireText(
-    workflow,
-    'process.versions.node.startsWith("24.")',
-    "PR validator",
-  );
-  requireText(workflow, "pathToFileURL", "PR validator");
-  requireText(workflow, 'await import("node:url")', "PR validator");
-  requireText(workflow, "await import(", "PR validator");
-  requireText(
-    workflow,
-    "validateKnowledgeCompatibilityReview(body)",
-    "PR validator",
+  requireText(workflow, "tools/pr_body_gate.ts", "PR validator");
+  requireText(workflow, "jdx/mise-action@", "PR validator");
+  requireText(workflow, "deno run", "PR validator");
+  requireText(workflow, "--allow-net=api.github.com", "PR validator");
+  requireText(workflow, "GITHUB_TOKEN", "PR validator");
+  assertEquals(
+    workflow.includes("actions/github-script@"),
+    false,
+    "PR validator must not execute the gate through Node",
   );
   assertEquals(
-    workflow.includes("readFileSync") ||
-      workflow.includes("stripTypeScriptTypes") ||
-      workflow.includes("data:text/javascript"),
+    workflow.includes("process.versions"),
     false,
-    "workflow must use native Node TypeScript loading",
+    "PR validator must not require a Node runtime",
+  );
+  assertEquals(
+    workflow.includes("validateKnowledgeCompatibilityReview(body)"),
+    false,
+    "PR validator must not implement classification semantics in YAML",
   );
   assertEquals(
     workflow.includes("knowledge_compatibility_node_fixture.ts"),
@@ -91,6 +93,17 @@ Deno.test("Knowledge Compatibility Review is a checked PR gate", () => {
     false,
     "workflow must not implement classification semantics",
   );
+  requireText(gate, "validateKnowledgeCompatibilityReview", "PR gate");
+  requireText(gate, "pr-(\\d+)", "PR gate");
+  requireText(gate, "api.github.com/repos/", "PR gate");
+  requireText(gate, "dependabot[bot]", "PR gate");
+  requireText(
+    gate,
+    "skipping the human PR template gate",
+    "PR gate",
+  );
+  requireText(gate, "## Summary", "PR gate");
+  requireText(gate, "close: #123", "PR gate");
   const requiredStatus = requiredStatusChecks.required_status_checks?.find(
     (check) => check.context === "require-close-issue-link",
   );
@@ -101,25 +114,6 @@ Deno.test("Knowledge Compatibility Review is a checked PR gate", () => {
   assertEquals(requiredStatus?.job_id, "require-close-issue-link");
   assertEquals(requiredStatus?.events, ["pull_request", "merge_group"]);
   requireText(workflow, "merge_group:", "PR validator");
-  requireText(workflow, "github.rest.pulls.get", "PR validator");
-  requireText(workflow, "pr-(\\d+)", "PR validator");
-  requireText(workflow, "context.ref", "PR validator");
-  requireText(
-    workflow,
-    "let pullRequestAuthor = context.payload.pull_request?.user?.login;",
-    "PR validator",
-  );
-  requireText(workflow, "response.data.user?.login", "PR validator");
-  requireText(
-    workflow,
-    'pullRequestAuthor === "dependabot[bot]"',
-    "PR validator",
-  );
-  requireText(
-    workflow,
-    "skipping the human PR template gate",
-    "PR validator",
-  );
   requireText(
     contract,
     "Every pull request that can affect Space ownership",
@@ -138,12 +132,11 @@ Deno.test("Knowledge Compatibility Review is a checked PR gate", () => {
   const webJobStart = ciWorkflow.indexOf("  web:\n");
   const artifactsJobStart = ciWorkflow.indexOf("  artifacts:\n", webJobStart);
   assertEquals(webJobStart >= 0, true, "CI web job must exist");
-  const webJob = ciWorkflow.slice(
-    webJobStart,
-    artifactsJobStart >= 0 ? artifactsJobStart : undefined,
+  assertEquals(
+    artifactsJobStart > webJobStart,
+    true,
+    "CI artifacts job must exist",
   );
-  requireText(webJob, "actions/setup-node@", "CI web job");
-  requireText(webJob, "node-version: 24", "CI web job");
   requireText(
     codeqlWorkflow,
     "upload: ${{ github.event_name == 'merge_group' && 'never' || 'always' }}",
@@ -242,53 +235,6 @@ Deno.test("Knowledge Compatibility Review uses one canonical validation matrix",
       testCase.name,
     );
   }
-});
-
-Deno.test("Node 24 loads and executes trusted TypeScript adapters", async () => {
-  const nodeSmoke = String.raw`
-import assert from "node:assert/strict";
-import { pathToFileURL } from "node:url";
-
-assert.equal(Number.parseInt(process.versions.node, 10) >= 24, true);
-const [validatorPath, typedFixturePath] = process.argv.slice(2);
-const { validateKnowledgeCompatibilityReview } = await import(
-  pathToFileURL(validatorPath).href
-);
-assert.equal(typeof validateKnowledgeCompatibilityReview, "function");
-assert.deepEqual(
-  validateKnowledgeCompatibilityReview(
-    "## Knowledge Compatibility Review\n\n- [x] No effect on the v0.1 Knowledge semantic contract.",
-  ),
-  [],
-);
-assert.notDeepEqual(
-  validateKnowledgeCompatibilityReview(
-    "## Knowledge Compatibility Review\n\n- [x] Preserving implementation change; the canonical fixture and focused tests remain passing.",
-  ),
-    [],
-);
-const { runAdapterFixture } = await import(pathToFileURL(typedFixturePath).href);
-assert.deepEqual(runAdapterFixture("loaded"), { loaded: true });
-assert.deepEqual(runAdapterFixture("rejected"), { loaded: false });
-`;
-  const result = await new Deno.Command("node", {
-    args: [
-      "--input-type=module",
-      "--eval",
-      nodeSmoke,
-      "knowledge-compatibility-adapter-smoke",
-      `${Deno.cwd()}/tools/knowledge_compatibility.ts`,
-      `${Deno.cwd()}/tools/knowledge_compatibility_node_fixture.ts`,
-    ],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  assertEquals(
-    result.success,
-    true,
-    new TextDecoder().decode(result.stderr) ||
-      new TextDecoder().decode(result.stdout),
-  );
 });
 
 // REQ-STO-014
