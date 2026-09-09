@@ -11,6 +11,7 @@ test.describe("Public page stability", () => {
 	}) => {
 		const context = await browser.newContext({
 			baseURL: process.env.FRONTEND_URL ?? "http://localhost:3000",
+			storageState: { cookies: [], origins: [] },
 		});
 		try {
 			const page = await context.newPage();
@@ -45,6 +46,7 @@ test.describe("Public page stability", () => {
 	}) => {
 		const context = await browser.newContext({
 			baseURL: process.env.FRONTEND_URL ?? "http://localhost:3000",
+			storageState: { cookies: [], origins: [] },
 		});
 		try {
 			const page = await context.newPage();

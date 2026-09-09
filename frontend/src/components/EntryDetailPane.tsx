@@ -1088,6 +1088,11 @@ export function EntryDetailPane(props: EntryDetailPaneProps) {
                 >
                   {t("entryDetail.back")}
                 </A>
+                <Show when={isCreateMode()}>
+                  <h2 class="ui-page-subtitle mt-2">
+                    {t("createDialog.entry.heading")}
+                  </h2>
+                </Show>
                 <div class="mt-2 flex flex-wrap items-center gap-2">
                   <h1 class="ui-page-title truncate">
                     {editorTitle() || t("common.untitled")}

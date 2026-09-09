@@ -46,12 +46,12 @@ test.describe("Dashboard starter-entry onboarding", () => {
 		await expect(page.locator("body")).toBeVisible();
 		await settleUiLoading(page);
 
-		await expect(page.getByRole("button", { name: "New entry" })).toBeEnabled();
+		await expect(page.getByRole("button", { name: "Entry" })).toBeEnabled();
 		await expect(
 			page.getByText("Start by creating your first form."),
 		).toHaveCount(0);
 
-		await page.getByRole("button", { name: "New entry" }).click();
+		await page.getByRole("button", { name: "Entry" }).click();
 
 		await expect(
 			page.getByRole("heading", { name: "Create New Entry" }),
