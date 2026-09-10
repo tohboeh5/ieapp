@@ -48,8 +48,8 @@ check. That source-qualification result is recorded by check-run identity; the
 candidate workflow does not rerun the merge gate or full E2E suite. The manifest
 records the version, source SHA, candidate run identity, source `ci-required`
 check-run identity, artifact paths, digests, sizes, platforms, and container
-coordinates. A candidate exists only when `verification.release_grade` is
-`passed`.
+coordinates. The candidate manifest contains release artifact identity only; it
+does not contain verification state.
 
 The candidate identity is the SHA-256 digest of the exact manifest bytes. The
 manifest does not contain its own identity, so two attempts for the same
@@ -60,22 +60,44 @@ prepared version remain distinguishable. Failed attempts do not advance
 version, all recorded artifact digests, and the candidate eligibility without
 building or packaging anything. Publish receives only the candidate workflow run
 ID; it derives `candidate_id` from the exact manifest bytes and verifies that
-the manifest's `ci_run_id` matches the supplied run ID.
+the manifest's `ci_run_id` matches the supplied run ID. The publish preflight
+then runs `release:verify-candidate-assets` against the exact CLI archives,
+npm/Helm archives, and container `repository@digest`; this is the minimum
+product contract for the candidate that will actually be promoted. It writes a
+run-scoped `verification-receipt-<verification_run_id>.json` sidecar containing
+the candidate ID, candidate run, immutable verifier workflow SHA, verification
+run ID, policy, and result. The receipt is evidence attached to the candidate;
+it is not included in the candidate manifest digest. Run-scoped names preserve
+prior evidence when a failed publication is retried.
 
 ## Promotion
 
-`mise run release:promote -- --candidate <manifest>` takes the verified
-candidate as its only release subject. The publish workflow accepts only the
-candidate workflow run ID and derives the candidate ID from the exact manifest
-bytes. Promotion uses the exact CLI archives, npm tarball, Helm archive, release
-Compose assets, and container digest recorded by the manifest. It does not
-compile, package, or repackage them. It publishes immutable versioned identities
-first, verifies them, and finalizes the stable GitHub Release. A publish
-preflight starts the exact candidate OCI digest and executes the exact candidate
-CLI archive before any versioned promotion. The workflow checks that the
-resulting GitHub Release is immutable. A separate distribution check then
-verifies the released assets, npm and Helm coordinates, container health, and
-CLI installer before the mutable aliases are changed.
+`mise run release:promote -- --candidate <manifest> --candidate-run-id <run>`
+takes the verified candidate as its only release subject. The candidate ID is
+always derived from the exact manifest bytes; the run ID is the only operator
+input and must match `manifest.ci_run_id`. Promotion requires a matching passed
+verification receipt. Promotion uses the exact CLI archives, npm tarball, Helm
+archive, release Compose assets, and container digest recorded by the manifest.
+It does not compile, package, or repackage them. It publishes immutable
+versioned identities first, verifies them, and finalizes the stable GitHub
+Release. GitHub Immutable Releases is enabled for future releases, and promotion
+verifies that the finalized release reports `isImmutable=true`. After the
+post-publish distribution check, the separate `mise run release:promote:aliases`
+task updates mutable aliases such as `latest`.
+
+The publish workflow checks out its verifier and release-note code at
+`github.workflow_sha`, never at the moving `main` ref. The workflow state is
+explicit: candidate, verified, publishing, versioned-published,
+distribution-verified, and announced. A failed later step leaves already
+published versioned identities intact and rerunning the same candidate resumes
+that promotion.
+
+The distribution check verifies the released assets, npm and Helm coordinates,
+container health, and CLI installer before the mutable aliases are changed. The
+published release manifest lists only GitHub Release assets in `files`; npm and
+Helm package digests are recorded in typed `npm_package` and `helm_chart`
+projections so registry artifacts are not mistaken for Release assets during
+distribution verification.
 
 Each publication is idempotent: a missing identity is published, a matching
 identity is verified and skipped, and a different identity aborts. An immutable

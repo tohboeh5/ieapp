@@ -91,9 +91,11 @@ reachable from `main` and has a successful `ci-required` check, then builds and
 packages the candidate artifact set without rerunning the merge gate or full E2E
 suite. It stores the result plus a schema-versioned `candidate-manifest.json`.
 The manifest records version, source SHA, candidate run identity, source
-`ci-required` check-run identity, verification state, artifact digests, and
-platform information. Its candidate ID is the SHA-256 of the exact manifest
-bytes; the manifest does not contain that ID.
+`ci-required` check-run identity, artifact digests, and platform information.
+Its candidate ID is the SHA-256 of the exact manifest bytes; the manifest does
+not contain that ID or verification state. Publish preflight records verifier
+identity and policy separately in a run-scoped
+`verification-receipt-<verification_run_id>.json` sidecar.
 
 `Release Publish` accepts only a candidate run ID, downloads the candidate
 artifact, derives its candidate ID from the exact manifest bytes, and invokes
@@ -103,11 +105,14 @@ preflight starts the exact candidate container digest and runs the exact CLI
 archive before promotion. The promotion job contains no compile, build, pack,
 package, or repackage step. It publishes the exact CLI archives, npm tarball,
 Helm archive, release Compose assets, and container digest from the manifest.
-Missing identities are published, matching identities are verified and skipped,
-and mismatches abort. Immutable versioned identities are verified before the
-GitHub Release is finalized. A separate distribution check verifies released
-assets, registry artifacts, container health, and the CLI installer; mutable
-aliases are updated only after that check and release-note publication.
+The promotion also attaches a run-scoped verification receipt containing the
+candidate ID, candidate run, verifier workflow SHA, verification run ID, policy,
+and result; this evidence is separate from candidate identity. Missing
+identities are published, matching identities are verified and skipped, and
+mismatches abort. Immutable versioned identities are verified before the GitHub
+Release is finalized. A separate distribution check verifies released assets,
+registry artifacts, container health, and the CLI installer; mutable aliases are
+updated only after that check and release-note publication.
 
 Candidate verification and distribution verification are separate. The former
 checks staged bytes and exact candidate runtime inputs; the latter checks
@@ -187,6 +192,7 @@ target/artifacts/
   manifest.json
   SHA256SUMS
   candidate-manifest.json  # candidate bundle only
+  verification-receipt-<verification_run_id>.json  # publish evidence
   docker-compose.release.yaml(.sha256)  # candidate/release assets
   docsite/
   cli/

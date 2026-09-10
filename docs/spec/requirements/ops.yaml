@@ -32,7 +32,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-002
   title: Container Build Validation
-  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without rerunning merge or full E2E gates, and the hosted Release Publish workflow smoke-tests the exact candidate image before promoting its versioned digest.
+  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without rerunning merge or full E2E gates, the publish preflight smoke-tests the exact candidate image digest and records a separate verification receipt, and the post-publish gate verifies distribution identity and health.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -189,7 +189,6 @@ requirements:
   priority: medium
   status: planned
   verification: untraced
-
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
@@ -391,6 +390,7 @@ requirements:
   verification: traced
   tests:
   - file: tools/release_contract_test.ts
+  - file: tools/release_verify_test.ts
   - file: .github/workflows/release-candidate.yml
   - file: .github/workflows/release-publish.yml
 - set_id: REQCAT-OPS
@@ -430,7 +430,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-025
   title: Published Release Distribution Verification
-  description: Release automation verifies the published GitHub Release assets, registry identities, container health, and CLI installer against the exact released version.
+  description: Release automation verifies the published GitHub Release assets, npm/Helm registry identities, container health, CLI installer, and candidate verification receipt against the exact released version.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md

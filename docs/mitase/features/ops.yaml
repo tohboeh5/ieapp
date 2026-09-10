@@ -394,6 +394,13 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-OPS-044#criterion.repository-native-release-promotion
+          - id: release-verifier-core
+            adapter: typescript
+            path: tools/release_verify.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-OPS-044#criterion.repository-native-release-promotion
       - id: planned-ops-evidence
         role: evidence
         facet: planned-work
@@ -461,6 +468,13 @@ features:
           - id: cli-install-script
             adapter: declared
             path: scripts/install-ugoite-cli.sh
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-018#criterion.cli-release-installation
+          - id: cli-quickstart-script
+            adapter: declared
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences

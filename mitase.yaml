@@ -177,6 +177,8 @@ inventory:
             - tools/pr_body_gate_test.ts
             - tools/release_contract_test.ts
             - tools/release.ts
+            - tools/release_verify.ts
+            - tools/release_verify_test.ts
             - tools/workspace_test.ts
         openapi:
           roots:
@@ -298,7 +300,6 @@ inventory:
             - scripts/verify-release-distribution.sh
             - docs/architecture/release/release-contract.md
             - scripts/ci/mitase-check.sh
-            - scripts/verify-release-container-quickstart.sh
             - tools/knowledge_compatibility.ts
             - tools/knowledge_compatibility_test.ts
             - tools/pr_body_gate.ts

@@ -432,9 +432,17 @@ run = "deno run -A tools/release.ts candidate"
 description = "Verify candidate bytes and manifest integrity without rebuilding"
 run = "deno run -A tools/release.ts verify-candidate"
 
+[tasks."release:verify-candidate-assets"]
+description = "Smoke-test the exact candidate CLI, package, chart, and container assets"
+run = "deno run -A tools/release.ts verify-candidate-assets"
+
 [tasks."release:verify-candidate-smoke"]
 description = "Smoke-test the exact candidate CLI archive and container digest"
 run = "deno run -A tools/release.ts verify-candidate-smoke"
+
+[tasks."release:write-verification-receipt"]
+description = "Record immutable verifier evidence for an exact candidate"
+run = "deno run -A tools/release.ts write-verification-receipt"
 
 [tasks."release:promote"]
 description = "Promote one verified candidate without rebuilding or repackaging"

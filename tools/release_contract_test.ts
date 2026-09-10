@@ -65,7 +65,9 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       "release:prepare",
       "release:candidate",
       "release:verify-candidate",
+      "release:verify-candidate-assets",
       "release:verify-candidate-smoke",
+      "release:write-verification-receipt",
       "release:promote",
     ]
   ) assertEquals(mise.includes(`[tasks."${task}"]`), true, task);
@@ -110,16 +112,65 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     releaseTool.includes('await run("mise", ["run", "ci:release"])'),
     false,
   );
-  assertEquals(releaseTool.includes("schema_version !== 3"), true);
-  assertEquals(releaseTool.includes("contract_version !== 3"), true);
+  assertEquals(releaseTool.includes("candidateIdFromManifestBytes"), true);
+  assertEquals(
+    releaseTool.includes(
+      'artifact.kind === "cli" || artifact.kind === "release"',
+    ),
+    true,
+  );
+  assertEquals(releaseTool.includes("npm_package:"), true);
+  assertEquals(releaseTool.includes("schema_version: 3"), true);
+  assertEquals(
+    releaseTool.includes(
+      "await verifyCandidateCliArchive(candidate);",
+    ),
+    true,
+  );
+  assertEquals(
+    distributionVerifier.includes("manifest.npm_package.digest"),
+    true,
+  );
   assertEquals(
     publish.includes("run-id: ${{ inputs.candidate_run_id }}"),
     true,
   );
   assertEquals(publish.includes("mise run release:verify-candidate"), true);
   assertEquals(publish.includes("mise run release:promote"), true);
-  assertEquals(publish.includes("candidate_id:"), true);
+  assertEquals(publish.includes("verify-distribution:"), true);
+  assertEquals(publish.includes("publish-channel-release-notes:"), true);
+  assertEquals(publish.includes("release:promote:aliases"), true);
+  assertEquals(publish.includes("UGOITE_PROMOTION_DEFER_ALIASES"), false);
   assertEquals(publish.includes("inputs.candidate_id"), false);
+  assertEquals(publish.includes("--candidate-id"), false);
+  assertEquals(publish.includes("--candidate-run-id"), true);
+  assertEquals(publish.includes("github.workflow_sha"), true);
+  assertEquals(publish.includes("python3"), false);
+  assertEquals(
+    publish.includes("deno run -A tools/release.ts candidate-id"),
+    true,
+  );
+  assertEquals(
+    publish.includes("Verify exact candidate assets before publication"),
+    true,
+  );
+  assertEquals(
+    publish.includes("Record verification receipt for exact candidate"),
+    true,
+  );
+  assertEquals(publish.includes("--verifier-workflow-sha"), true);
+  assertEquals(publish.includes("--verification-run-id"), true);
+  assertEquals(
+    publish.includes("verification-receipt-${{ github.run_id }}.json"),
+    true,
+  );
+  assertEquals(releaseTool.includes("isImmutable"), true);
+  assertEquals(
+    publish.includes("verify-release-container-quickstart.sh"),
+    false,
+  );
+  assertEquals(publish.includes("verify-release-cli-quickstart.sh"), false);
+  assertEquals(publish.includes("e2e:install:browsers"), false);
   assertEquals(
     publish.includes(
       "description: SHA-256 ID printed by the candidate workflow",
@@ -131,7 +182,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   assertEquals(publish.includes("ref: ${{ github.workflow_sha }}"), true);
   assertEquals(publish.includes("verify-distribution:"), true);
   assertEquals(publish.includes("GH_TOKEN: ${{ github.token }}"), true);
-  assertEquals(publish.includes("release:verify-candidate-smoke"), true);
+  assertEquals(publish.includes("release:verify-candidate-assets"), true);
   assertEquals(publish.includes("verify-release-distribution.sh"), true);
   assertEquals(publish.includes("publish-channel-release-notes:"), true);
   assertEquals(publish.includes("release:promote:aliases"), true);
@@ -141,7 +192,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   assertEquals(publish.includes("e2e:install"), false);
   assertEquals(publish.includes("verify-published-quickstarts"), false);
   const promoteStart = releaseTool.indexOf(
-    "async function promote(candidate: VerifiedCandidate)",
+    "async function promote(\n",
   );
   const aliasesStart = releaseTool.indexOf(
     "async function promoteAliases(candidate: VerifiedCandidate)",
@@ -153,6 +204,12 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   const promoteBody = releaseTool.slice(promoteStart, aliasesStart);
   assertEquals(
+    releaseTool.includes("candidateCliAssetPaths"),
+    false,
+    "promotion must not add CLI assets outside prepareReleaseAssets",
+  );
+  assertEquals(promoteBody.includes("...releaseAssets"), true);
+  assertEquals(
     promoteBody.indexOf("publishContainer(candidate)") <
       promoteBody.indexOf("ensureStableRelease("),
     true,
@@ -163,6 +220,10 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   const npmStart = releaseTool.indexOf("async function publishNpm(");
   assertEquals(
     releaseTool.slice(stableReleaseStart, npmStart).includes('"--draft"'),
+    true,
+  );
+  assertEquals(
+    releaseTool.slice(stableReleaseStart, npmStart).includes("isImmutable"),
     true,
   );
   assertEquals(
@@ -180,27 +241,18 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       .test(publish),
     false,
   );
-  assertEquals(mise.includes("release:verify-candidate-smoke"), true);
+  assertEquals(releaseTool.includes("isImmutable"), true);
   const releaseCiStart = mise.indexOf('[tasks."ci:release"]');
   const releaseCiBody = mise.slice(releaseCiStart);
   assertEquals(releaseCiBody.includes('{ task = "ci:merge" }'), false);
   assertEquals(releaseCiBody.includes('{ task = "test:e2e" }'), false);
   assertEquals(releaseCiBody.includes('{ task = "build" }'), true);
   assertEquals(releaseCiBody.includes('{ task = "verify" }'), true);
-  assertEquals(releaseTool.includes("verifyCandidateSmoke"), true);
-  assertEquals(releaseTool.includes('"--pull"'), true);
-  assertEquals(releaseTool.includes('["space", "create"'), true);
-  assertEquals(releaseTool.includes('["space", "list"'), true);
   assertEquals(distributionVerifier.includes("isImmutable"), true);
   assertEquals(distributionVerifier.includes("npm view"), true);
   assertEquals(distributionVerifier.includes("helm pull"), true);
   assertEquals(distributionVerifier.includes("/health"), true);
   assertEquals(distributionVerifier.includes("deno task smoke"), false);
-  const stableReleaseBody = releaseTool.slice(
-    stableReleaseStart,
-    npmStart,
-  );
-  assertEquals(stableReleaseBody.includes("isImmutable"), true);
 });
 
 Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering fails", async () => {
@@ -235,13 +287,12 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     ),
   ];
   const manifest = {
-    schema_version: 3,
-    contract_version: 3,
+    schema_version: 4,
+    contract_version: 4,
     version: "0.1.0",
     source_sha: source,
     ci_run_id: "test-run",
     source_ci_required_check_run_id: "test-ci-check",
-    verification: { release_grade: "passed" },
     artifacts: [
       {
         kind: "cli",
@@ -350,7 +401,6 @@ Deno.test("REQ-OPS-044: candidate writer records every promotion surface", async
       UGOITE_SOURCE_SHA: source,
       UGOITE_CI_RUN_ID: "test-run",
       UGOITE_SOURCE_CI_REQUIRED_CHECK_RUN_ID: "test-ci-check",
-      UGOITE_RELEASE_GRADE: "passed",
       UGOITE_CONTAINER_TAG: "sha-test",
       UGOITE_CONTAINER_DIGEST: `sha256:${"a".repeat(64)}`,
     },
@@ -361,7 +411,8 @@ Deno.test("REQ-OPS-044: candidate writer records every promotion surface", async
   const manifest = JSON.parse(
     await Deno.readTextFile(`${artifactRoot}/candidate-manifest.json`),
   ) as { artifacts: Array<{ kind: string }>; schema_version: number };
-  assertEquals(manifest.schema_version, 3);
+  assertEquals(manifest.schema_version, 4);
+  assertEquals("verification" in manifest, false);
   assertEquals(
     new Set(manifest.artifacts.map((artifact) => artifact.kind)),
     new Set(["cli", "npm", "helm", "image", "release"]),
