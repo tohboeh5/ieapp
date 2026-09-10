@@ -20,8 +20,10 @@ async fn stable_space_id(operator: &Operator, workspace_path: &str) -> Result<Sp
     let metadata_exists =
         tokio::time::timeout(SPACE_METADATA_READ_TIMEOUT, operator.exists(&metadata_path))
             .await
-            .map_err(|_| {
-                anyhow::anyhow!("timed out reading Space metadata at {metadata_path}")
+            .map_err(|error| {
+                anyhow::Error::new(error).context(format!(
+                    "timed out reading Space metadata at {metadata_path}"
+                ))
             })??;
     if !metadata_exists {
         return Err(anyhow::anyhow!(
@@ -33,7 +35,11 @@ async fn stable_space_id(operator: &Operator, workspace_path: &str) -> Result<Sp
         crate::read_object_exact(operator, &metadata_path),
     )
     .await
-    .map_err(|_| anyhow::anyhow!("timed out reading Space metadata at {metadata_path}"))??;
+    .map_err(|error| {
+        anyhow::Error::new(error).context(format!(
+            "timed out reading Space metadata at {metadata_path}"
+        ))
+    })??;
     let metadata: Value = serde_json::from_slice(&metadata_bytes)?;
     let directory_id = workspace_path
         .trim_matches('/')
@@ -67,10 +73,12 @@ pub async fn native_mutation_workspace(
     let space_id = stable_space_id(operator, workspace_path)
         .await
         .map_err(|error| {
-            if error
-                .chain()
-                .any(|cause| cause.downcast_ref::<opendal::Error>().is_some())
-            {
+            if error.chain().any(|cause| {
+                cause.downcast_ref::<opendal::Error>().is_some()
+                    || cause
+                        .downcast_ref::<tokio::time::error::Elapsed>()
+                        .is_some()
+            }) {
                 storage_mutation_unavailable(error)
             } else {
                 error
