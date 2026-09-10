@@ -36,19 +36,19 @@ requirements:
 
   - id: REQ-OPS-002
     title: Container Build Validation
-    description: The single runtime image is validated locally by `ci:release` and is smoke-tested by the hosted release gate, including the documented Compose quick start for the published version.
+    description: The single runtime image is validated locally by `ci:release`, smoke-tested before publication from the exact candidate digest, and checked after publication for distribution identity and health.
     priority: medium
     status: implemented
     criteria:
       - id: release-container-validation
         kind: behavior
-        statement: The release workflow builds the runtime image and the release smoke check exercises the published versioned image through the documented Compose quick start.
+        statement: The release workflow builds the runtime image, starts the exact candidate digest before publication, and checks the published versioned digest and health after publication.
         governed_by: [POL-003#rule.governance, POL-005#rule.governance, POL-008#rule.governance]
     bindings:
       - id: release-container-verification
         role: evidence
         facet: release-gate
-        responsibility: Connect the local `ci:release` task, release workflow, and smoke script that provide the current container evidence. This slice records the existing gates and does not change runtime or release behavior.
+        responsibility: Connect the local release artifact task, candidate preflight, and post-publish distribution verifier that provide the current container evidence. This slice records release behavior without making the registry a second authority.
         targets:
           - id: local-release-gate
             adapter: declared
@@ -66,7 +66,7 @@ requirements:
                 anchor: REQ-OPS-002#criterion.release-container-validation
           - id: container-smoke
             adapter: declared
-            path: scripts/verify-release-container-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -708,13 +708,13 @@ requirements:
     criteria:
       - id: release-container-promotion
         kind: behavior
-        statement: The release publish workflow promotes the verified image and runs the published container quick-start verification against the exact versioned release assets.
+        statement: The release publish workflow promotes the verified image and checks the published versioned image digest and health against exact release assets without browser E2E.
         governed_by: [POL-003#rule.governance, POL-005#rule.governance, POL-008#rule.governance]
     bindings:
       - id: release-container-promotion-evidence
         role: evidence
         facet: release-gate
-        responsibility: Connect the release publish workflow and container quick-start script as generic evidence; release execution remains external repository tooling.
+        responsibility: Connect the release publish workflow and distribution verifier as generic evidence; release execution remains external repository tooling.
         targets:
           - id: release-publish-workflow
             adapter: declared
@@ -723,9 +723,9 @@ requirements:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-017#criterion.release-container-promotion
-          - id: container-quickstart-script
+          - id: distribution-verifier
             adapter: declared
-            path: scripts/verify-release-container-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -733,19 +733,19 @@ requirements:
 
   - id: REQ-OPS-018
     title: CLI Release Binaries and Install Path
-    description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives before the post-publication installer quick-start gate.
+    description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives before the post-publication installer version check.
     priority: medium
     status: implemented
     criteria:
       - id: cli-release-installation
         kind: behavior
-        statement: The release publish workflow promotes verified CLI archives and the installer quick-start script verifies the published version and checksum-backed install path without rebuilding.
+        statement: The release publish workflow promotes verified CLI archives and the distribution verifier checks the published version and checksum-backed installer path without rebuilding.
         governed_by: [POL-005#rule.governance, POL-008#rule.governance]
     bindings:
       - id: cli-release-installation-evidence
         role: evidence
         facet: cli-release
-        responsibility: Connect the release publish workflow, public installer, and CLI quick-start verifier as generic repository evidence; release execution remains external repository tooling.
+        responsibility: Connect the release publish workflow, public installer, and distribution verifier as generic repository evidence; release execution remains external repository tooling.
         targets:
           - id: release-publish-workflow
             adapter: declared
@@ -763,7 +763,7 @@ requirements:
                 anchor: REQ-OPS-018#criterion.cli-release-installation
           - id: cli-quickstart-script
             adapter: declared
-            path: scripts/verify-release-cli-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences

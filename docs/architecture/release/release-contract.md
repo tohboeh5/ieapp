@@ -58,18 +58,30 @@ prepared version remain distinguishable. Failed attempts do not advance
 
 `mise run release:verify-candidate` verifies those exact bytes, the source
 version, all recorded artifact digests, and the candidate eligibility without
-building or packaging anything.
+building or packaging anything. The publish preflight then runs
+`release:verify-candidate-assets` against the exact CLI archives, npm/Helm
+archives, and container `repository@digest`; this is the minimum product
+contract for the candidate that will actually be promoted.
 
 ## Promotion
 
-`mise run release:promote -- --candidate <manifest> --candidate-id <id>` takes
-the verified candidate as its only release subject. Promotion uses the exact CLI
+`mise run release:promote -- --candidate <manifest> --candidate-run-id <run>`
+takes the verified candidate as its only release subject. The candidate ID is
+always derived from the exact manifest bytes; the run ID is the only operator
+input and must match `manifest.ci_run_id`. Promotion uses the exact CLI
 archives, npm tarball, Helm archive, release Compose assets, and container
 digest recorded by the manifest. It does not compile, package, or repackage
 them. It publishes immutable versioned identities first, verifies them, and
-finalizes the stable GitHub Release. After the published quick-start checks, the
-separate `mise run release:promote:aliases` task updates mutable aliases such as
-`latest`.
+finalizes the stable GitHub Release. After the post-publish distribution check,
+the separate `mise run release:promote:aliases` task updates mutable aliases
+such as `latest`.
+
+The publish workflow checks out its verifier and release-note code at
+`github.workflow_sha`, never at the moving `main` ref. The workflow state is
+explicit: candidate, verified, publishing, versioned-published,
+distribution-verified, and announced. A failed later step leaves already
+published versioned identities intact and rerunning the same candidate resumes
+that promotion.
 
 Each publication is idempotent: a missing identity is published, a matching
 identity is verified and skipped, and a different identity aborts. An immutable

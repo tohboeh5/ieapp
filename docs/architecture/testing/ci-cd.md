@@ -36,7 +36,8 @@ Root task composition:
 - `ci:artifacts`: build/package/verify, a focused docsite-navigation E2E lane,
   E2E smoke plus Form-owned Asset acceptance, and version validation;
 - `ci:merge`: `ci` plus `ci:artifacts`;
-- `ci:release`: `ci:merge`, npm packaging/verification, and the full E2E suite.
+- `ci:release`: release artifact build/package/verification plus npm
+  packaging/verification; it does not repeat `ci:merge` or full E2E.
 
 Hosted CI schedules the `ci-rust-check`, `ci-rust-test`, `ci-web`, and
 `artifacts` lanes in parallel, then the `ci-required` aggregator preserves the
@@ -94,20 +95,24 @@ The manifest records version, source SHA, candidate run identity, source
 platform information. Its candidate ID is the SHA-256 of the exact manifest
 bytes; the manifest does not contain that ID.
 
-`Release Publish` accepts a candidate run and candidate ID, downloads the
-candidate artifact, and invokes `release:verify-candidate` before promotion. The
-promotion job contains no compile, build, pack, package, or repackage step. It
-publishes the exact CLI archives, npm tarball, Helm archive, release Compose
-assets, and container digest from the manifest. Missing identities are
-published, matching identities are verified and skipped, and mismatches abort.
-Immutable versioned identities are verified before the GitHub Release is
-finalized; mutable aliases are updated by a separate final job after quick-start
-checks.
+`Release Publish` accepts only a candidate run ID, downloads the candidate
+artifact, derives the candidate ID from the manifest bytes, and invokes
+`release:verify-candidate` before promotion. The promotion job contains no
+compile, build, pack, package, or repackage step. It publishes the exact CLI
+archives, npm tarball, Helm archive, release Compose assets, and container
+digest from the manifest. Missing identities are published, matching
+identities are verified and skipped, and mismatches abort. Immutable versioned
+identities are verified before the GitHub Release is finalized; a pre-publish
+asset smoke uses the exact candidate archive and `repository@digest`, while a
+post-publish check is limited to distribution identity, container health, and
+CLI installer `--version`. Mutable aliases are updated only after that check
+and release-note publication.
 
 Candidate verification and publication verification are separate. The former
-checks staged bytes; the latter downloads published assets and runs the public
-CLI and Compose quick starts against those assets. Both workflows keep a
-top-level `permissions: {}` boundary and grant only job-scoped permissions.
+checks staged bytes and the exact candidate assets; the latter downloads
+published assets and checks distribution identity and availability without
+Playwright or full/smoke browser E2E. Both workflows keep a top-level
+`permissions: {}` boundary and grant only job-scoped permissions.
 
 Detailed provenance evidence and planner-ref recovery remain follow-up work, not
 additional v0.1 release authorities.
