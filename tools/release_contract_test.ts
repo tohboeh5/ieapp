@@ -204,6 +204,12 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   const promoteBody = releaseTool.slice(promoteStart, aliasesStart);
   assertEquals(
+    releaseTool.includes("candidateCliAssetPaths"),
+    false,
+    "promotion must not add CLI assets outside prepareReleaseAssets",
+  );
+  assertEquals(promoteBody.includes("...releaseAssets"), true);
+  assertEquals(
     promoteBody.indexOf("publishContainer(candidate)") <
       promoteBody.indexOf("ensureStableRelease("),
     true,

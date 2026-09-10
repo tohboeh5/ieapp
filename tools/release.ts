@@ -813,7 +813,6 @@ async function promote(
   const draftTag = candidateDraftTag(candidate);
   const releaseAssets = await prepareReleaseAssets(candidate, receiptPath);
   const releaseFiles = [
-    ...candidateCliAssetPaths(candidate),
     candidate.manifestPath,
     ...releaseAssets,
   ];
@@ -986,16 +985,6 @@ async function ensureStableRelease(
       `GitHub Release ${tag} was not published as an immutable release`,
     );
   }
-}
-
-function candidateCliAssetPaths(candidate: VerifiedCandidate): string[] {
-  const assets = candidate.manifest.artifacts
-    .filter((artifact) => artifact.kind === "cli")
-    .flatMap((artifact) => artifact.files)
-    .map((file) =>
-      safeCandidatePath(dirname(candidate.manifestPath), file.path)
-    );
-  return assets;
 }
 
 async function prepareReleaseAssets(
