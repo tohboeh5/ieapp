@@ -7,6 +7,7 @@ use opendal::Operator;
 use serde_json::Value;
 #[cfg(unix)]
 use tempfile::tempdir;
+use ugoite_core::error::{AppError, ErrorCode};
 use ugoite_iceberg::{form, space};
 use uuid::Uuid;
 
@@ -39,6 +40,8 @@ async fn test_space_req_sto_002_create_space_scaffolding() -> anyhow::Result<()>
     let meta: Value = serde_json::from_slice(&meta_bytes)?;
     assert_eq!(meta["id"], ws_id);
     assert_eq!(meta["name"], ws_id);
+    assert_eq!(meta["space_version"], "0.1");
+    assert!(meta.get("schema_version").is_none());
     assert!(meta.get("created_at").is_some());
     assert!(meta.get("storage").is_none());
 
@@ -244,22 +247,88 @@ async fn test_space_req_sto_005_create_space_idempotency() -> anyhow::Result<()>
 }
 
 #[tokio::test]
-async fn legacy_space_metadata_schema_is_rejected() -> anyhow::Result<()> {
+async fn schema_identity_without_space_version_is_rejected() -> anyhow::Result<()> {
     let op = setup_operator()?;
     space::create_space(&op, "legacy-schema", "/tmp").await?;
     let meta_path = "spaces/legacy-schema/meta.json";
     let mut meta: Value = serde_json::from_slice(&op.read(meta_path).await?.to_vec())?;
+    meta.as_object_mut()
+        .expect("Space metadata must be an object")
+        .remove("space_version");
+    // The old internal field must not become a compatibility alias.
     meta["schema_version"] = Value::from(1);
     op.write(meta_path, serde_json::to_vec(&meta)?).await?;
 
     let error = space::get_space(&op, "legacy-schema").await.unwrap_err();
-    assert!(error.to_string().contains("unsupported Space layout"));
+    let app_error = error
+        .downcast_ref::<AppError>()
+        .expect("Space version failures must be typed");
+    assert_eq!(app_error.code(), ErrorCode::UnsupportedSpaceVersion);
+    assert_eq!(app_error.code_str(), "UNSUPPORTED_SPACE_VERSION");
+    assert_eq!(
+        app_error
+            .detail()
+            .and_then(|detail| detail.get("detected_space_version").and_then(Value::as_str)),
+        None
+    );
     let workspace_error = form::list_forms(&op, "spaces/legacy-schema")
         .await
         .unwrap_err();
-    assert!(workspace_error
-        .to_string()
-        .contains("unsupported Space layout"));
+    assert_eq!(
+        workspace_error
+            .downcast_ref::<AppError>()
+            .expect("form reads must preserve typed Space version failures")
+            .code(),
+        ErrorCode::UnsupportedSpaceVersion
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn missing_malformed_and_unknown_space_versions_fail_closed() -> anyhow::Result<()> {
+    for (label, version) in [
+        ("missing", None),
+        ("number", Some(Value::from(1))),
+        ("object", Some(serde_json::json!({"major": 0, "minor": 1}))),
+        ("malformed", Some(Value::from("0.1.0"))),
+        ("future", Some(Value::from("0.2"))),
+    ] {
+        let op = setup_operator()?;
+        let space_id = format!("space-version-{label}");
+        space::create_space(&op, &space_id, "/tmp").await?;
+        let meta_path = format!("spaces/{space_id}/meta.json");
+        let mut meta: Value = serde_json::from_slice(&op.read(&meta_path).await?.to_vec())?;
+        if let Some(version) = version {
+            meta["space_version"] = version;
+        } else {
+            meta.as_object_mut()
+                .expect("Space metadata must be an object")
+                .remove("space_version");
+        }
+        op.write(&meta_path, serde_json::to_vec(&meta)?).await?;
+
+        let error = space::get_space(&op, &space_id)
+            .await
+            .expect_err("unsupported Space versions must fail closed");
+        let app_error = error
+            .downcast_ref::<AppError>()
+            .expect("Space version failures must be typed");
+        assert_eq!(
+            app_error.code(),
+            ErrorCode::UnsupportedSpaceVersion,
+            "{label}"
+        );
+        assert_eq!(
+            app_error
+                .detail()
+                .and_then(|detail| detail.get("supported_space_versions"))
+                .and_then(Value::as_array)
+                .and_then(|versions| versions.first())
+                .and_then(Value::as_str),
+            Some("0.1"),
+            "{label}"
+        );
+    }
     Ok(())
 }
 

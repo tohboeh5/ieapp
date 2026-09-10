@@ -8,6 +8,8 @@ global.json
 spaces/
 !frontend/src/routes/spaces/
 !frontend/src/routes/spaces/**
+!fixtures/spaces/
+!fixtures/spaces/**
 
 # OS metadata
 .DS_Store

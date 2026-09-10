@@ -6390,6 +6390,7 @@ dependencies = [
  "tokio",
  "ugoite-api-client",
  "ugoite-core",
+ "ugoite-domain",
  "ugoite-iceberg",
  "ugoite-konase",
  "ugoite-konase-rig",

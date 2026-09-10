@@ -2,12 +2,17 @@
 title: "SpaceCatalog publication contract"
 ---
 
-This is the single durable-control-plane contract for a Ugoite Space. It is
-intentionally destructive before the first release: the internal pre-release
-Space format version is unchanged, while legacy layouts and catalog modes are
-unsupported rather than migrated. The v0.1 compatibility floor freezes the
-authority and history semantics described here; it does not permanently freeze
-the current physical encoding.
+This is the single durable-control-plane contract for a Ugoite Space. The
+durable compatibility identity is `space_version: "0.1"`, owned by
+`ugoite-domain`; internal catalog and physical layouts are implementation
+details. Legacy or unsupported Space Versions fail closed rather than being
+migrated. The v0.1 compatibility floor freezes the authority and history
+semantics described here; it does not permanently freeze the current physical
+encoding.
+
+See the [Space compatibility contract](space-compatibility.md) for the
+version-first open order and the explicit no-alias/no-automatic-migration
+boundary.
 
 The Catalog Head layout, upstream physical boundary, single mutation
 coordinator, Pin-selected revision reads, authorization-aware DataFusion

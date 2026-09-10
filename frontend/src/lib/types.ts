@@ -28,6 +28,8 @@ export interface SpaceStorageConfig extends SpaceStorage {
 export interface Space {
   id: string;
   space_uid?: string;
+  /** Durable Space compatibility identity; independent from Product version. */
+  space_version?: string;
   slug?: string;
   name: string;
   created_at: string;

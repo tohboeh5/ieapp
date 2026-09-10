@@ -12116,6 +12116,7 @@
         "required": [
           "id",
           "space_uid",
+          "space_version",
           "slug",
           "name",
           "created_at"
@@ -12128,6 +12129,11 @@
             "type": "string",
             "format": "uuid",
             "description": "Immutable UUIDv7 Space identity."
+          },
+          "space_version": {
+            "type": "string",
+            "const": "0.1",
+            "description": "Durable Space compatibility identity; independent from the Ugoite Product version."
           },
           "slug": {
             "type": "string"
@@ -12251,6 +12257,7 @@
           "id",
           "slug",
           "space_uid",
+          "space_version",
           "name",
           "path"
         ],
@@ -12264,6 +12271,11 @@
           "space_uid": {
             "type": "string",
             "format": "uuid"
+          },
+          "space_version": {
+            "type": "string",
+            "const": "0.1",
+            "description": "Durable Space compatibility identity; independent from the Ugoite Product version."
           },
           "name": {
             "type": "string"
