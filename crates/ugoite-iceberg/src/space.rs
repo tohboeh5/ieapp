@@ -19,11 +19,20 @@ use url::Url;
 use crate::form;
 use ugoite_core::error::{AppError, ErrorCode};
 use ugoite_domain::id::validate_space_id;
+use ugoite_domain::space::{
+    classify_space_version, CURRENT_SPACE_VERSION, SUPPORTED_SPACE_VERSIONS,
+};
 pub use ugoite_domain::space::{storage_type_and_root, SpaceMeta, StorageConfig};
 use ugoite_storage::{operator_from_uri_with_endpoint, OpendalStorage, StorageBackend};
 
-pub(crate) const CURRENT_SPACE_SCHEMA_VERSION: u64 = 3;
 const STORAGE_CONNECTION_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn unsupported_space_version_error(metadata: &serde_json::Value) -> anyhow::Error {
+    let detected = classify_space_version(metadata)
+        .err()
+        .and_then(|error| error.detected().map(str::to_owned));
+    AppError::unsupported_space_version(detected.as_deref(), SUPPORTED_SPACE_VERSIONS).into()
+}
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct StorageConnectionTestConfig {
@@ -276,7 +285,7 @@ async fn create_space_with_storage<S: StorageBackend + ?Sized>(
     let (hmac_key_id, hmac_key, last_rotation) = generate_hmac_material();
 
     let meta = serde_json::json!({
-        "schema_version": CURRENT_SPACE_SCHEMA_VERSION,
+        "space_version": CURRENT_SPACE_VERSION,
         "space_id": directory_id,
         "space_uid": space_uid,
         "slug": slug,
@@ -377,12 +386,16 @@ pub async fn repair_space_with_identity(
         return Err(anyhow!("UUID-addressed Space identity must be a UUIDv7"));
     }
     let directory_id = space_uid.to_string();
-    crate::iceberg_store::ensure_mutation_admitted(op, &format!("spaces/{directory_id}")).await?;
     validate_space_path_segment(&directory_id)?;
     validate_space_path_segment(slug)?;
     let storage = OpendalStorage::from_operator(op);
     let meta_path = format!("spaces/{directory_id}/meta.json");
-    if !storage.exists(&meta_path).await? {
+    let metadata_exists = storage.exists(&meta_path).await?;
+    if metadata_exists {
+        ensure_space_identity(&storage, &directory_id).await?;
+    }
+    crate::iceberg_store::ensure_mutation_admitted(op, &format!("spaces/{directory_id}")).await?;
+    if !metadata_exists {
         return create_space_with_identity_and_name(op, space_uid, slug, display_name, root_path)
             .await;
     }
@@ -419,9 +432,9 @@ pub async fn repair_space(
     crate::authorization::Authorizer::new(op.clone()).ensure_authoritative_mutation_contract()?;
     validate_space_path_segment(directory_id)?;
     validate_space_path_segment(slug)?;
-    crate::iceberg_store::ensure_mutation_admitted(op, &format!("spaces/{directory_id}")).await?;
     let storage = OpendalStorage::from_operator(op);
     let meta = ensure_space_identity(&storage, directory_id).await?;
+    crate::iceberg_store::ensure_mutation_admitted(op, &format!("spaces/{directory_id}")).await?;
     if meta.get("slug").and_then(serde_json::Value::as_str) != Some(slug) {
         return Err(anyhow!(
             "Space slug claim does not match immutable Space metadata"
@@ -630,14 +643,48 @@ async fn ensure_space_identity<S: StorageBackend + ?Sized>(
     Ok(meta)
 }
 
+/// Classify an existing Space before a shared-backend mutation admission
+/// probe. Creation paths may call the admission probe before metadata exists;
+/// an existing metadata object must never be probed or repaired before its
+/// compatibility identity is known.
+pub(crate) async fn ensure_existing_space_version(
+    op: &Operator,
+    workspace_path: &str,
+) -> Result<()> {
+    let meta_path = format!("{}/meta.json", workspace_path.trim_end_matches('/'));
+    let metadata_exists = tokio::time::timeout(
+        crate::iceberg_store::SPACE_METADATA_READ_TIMEOUT,
+        op.exists(&meta_path),
+    )
+    .await
+    .map_err(|_| anyhow!("timed out reading Space metadata at {meta_path}"))??;
+    if !metadata_exists {
+        return Ok(());
+    }
+    let metadata_bytes = tokio::time::timeout(
+        crate::iceberg_store::SPACE_METADATA_READ_TIMEOUT,
+        op.read(&meta_path),
+    )
+    .await
+    .map_err(|_| anyhow!("timed out reading Space metadata at {meta_path}"))??;
+    let metadata: serde_json::Value = serde_json::from_slice(&metadata_bytes.to_vec())?;
+    classify_space_version(&metadata).map_err(|_| unsupported_space_version_error(&metadata))?;
+    Ok(())
+}
+
 pub(crate) fn validate_current_space_metadata(
     expected_directory_id: &str,
     meta: &serde_json::Value,
 ) -> Result<uuid::Uuid> {
+    // Compatibility classification is deliberately the first metadata
+    // decision. It must precede structural validation and every write-capable
+    // recovery or mutation path.
+    classify_space_version(meta).map_err(|_| unsupported_space_version_error(meta))?;
+
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct CurrentSpaceMetadata {
-        schema_version: u64,
+        space_version: String,
         space_id: String,
         space_uid: uuid::Uuid,
         slug: String,
@@ -652,10 +699,8 @@ pub(crate) fn validate_current_space_metadata(
     let metadata: CurrentSpaceMetadata = serde_json::from_value(meta.clone()).map_err(|error| {
         anyhow!("unsupported Space layout: incomplete or invalid metadata: {error}")
     })?;
-    if metadata.schema_version != CURRENT_SPACE_SCHEMA_VERSION {
-        return Err(anyhow!(
-            "unsupported Space layout: metadata schema_version must be 3"
-        ));
+    if metadata.space_version != CURRENT_SPACE_VERSION {
+        return Err(unsupported_space_version_error(meta));
     }
     if metadata.space_id != expected_directory_id {
         return Err(anyhow!(
@@ -1076,6 +1121,11 @@ async fn recover_pending_space_patch(op: &Operator, space_id: &str) -> Result<()
     };
     let journal: SpacePatchJournal =
         serde_json::from_value(value).context("decode pending Space patch journal")?;
+    // A pending journal is a proposed authoritative metadata mutation. Its
+    // compatibility identity must be classified before permission repair,
+    // mutation admission, or any recovery write.
+    classify_space_version(&journal.new_metadata)
+        .map_err(|_| unsupported_space_version_error(&journal.new_metadata))?;
     // The journal contains old and new authoritative metadata, including
     // integrity material. Repair legacy local modes before any recovery branch
     // returns, including the already-completed tombstone path.
@@ -1197,8 +1247,11 @@ pub async fn validate_complete_bootstrap(op: &Operator, space_id: &str) -> Resul
 }
 
 async fn validate_complete_bootstrap_locked(op: &Operator, space_id: &str) -> Result<()> {
-    recover_pending_space_patch(op, space_id).await?;
     let storage = OpendalStorage::from_operator(op);
+    ensure_space_identity(&storage, space_id).await?;
+    recover_pending_space_patch(op, space_id).await?;
+    // Recovery may publish the journal's already-classified metadata; validate
+    // the resulting identity before reading any Knowledge or scaffold state.
     ensure_space_identity(&storage, space_id).await?;
     for directory in ["security", "forms", "assets", "sql_sessions"] {
         let path = format!("spaces/{space_id}/{directory}/");
@@ -1455,10 +1508,10 @@ pub async fn patch_space(
     space_id: &str,
     patch: &serde_json::Value,
 ) -> Result<serde_json::Value> {
+    validate_complete_bootstrap(op, space_id).await?;
     crate::authorization::Authorizer::new(op.clone()).ensure_authoritative_mutation_contract()?;
     crate::iceberg_store::ensure_mutation_admitted(op, &format!("spaces/{space_id}")).await?;
     crate::authorization::ensure_authorization_write_fence().await?;
-    validate_complete_bootstrap(op, space_id).await?;
     patch_space_with_operator(op, space_id, patch, None).await
 }
 
@@ -1471,10 +1524,10 @@ pub async fn patch_space_if_slug(
     patch: &serde_json::Value,
     expected_slug: &str,
 ) -> Result<serde_json::Value> {
+    validate_complete_bootstrap(op, space_id).await?;
     crate::authorization::Authorizer::new(op.clone()).ensure_authoritative_mutation_contract()?;
     crate::iceberg_store::ensure_mutation_admitted(op, &format!("spaces/{space_id}")).await?;
     crate::authorization::ensure_authorization_write_fence().await?;
-    validate_complete_bootstrap(op, space_id).await?;
     patch_space_with_operator(op, space_id, patch, Some(expected_slug)).await
 }
 

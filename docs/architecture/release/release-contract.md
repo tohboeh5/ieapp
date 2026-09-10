@@ -59,9 +59,9 @@ prepared version remain distinguishable. Failed attempts do not advance
 `mise run release:verify-candidate` verifies those exact bytes, the source
 version, all recorded artifact digests, and the candidate eligibility without
 building or packaging anything. The publish preflight then runs
-`release:verify-candidate-assets` against the exact CLI archives, npm/Helm
-archives, and container `repository@digest`; this is the minimum product
-contract for the candidate that will actually be promoted. It writes a
+`release:verify-candidate-smoke` against the exact CLI archive and container
+`repository@digest`; this is the minimum product contract for the candidate
+that will actually be promoted. It writes a
 run-scoped `verification-receipt-<verification_run_id>.json` sidecar containing
 the candidate ID, candidate run, immutable verifier workflow SHA, verification
 run ID, policy, and result. The receipt is evidence attached to the candidate;
@@ -95,6 +95,19 @@ identity is verified and skipped, and a different identity aborts. An immutable
 public version with corrupted content is never overwritten or reused. A
 transient failure can safely rerun the same candidate when its artifact storage
 is still available.
+
+Promotion has explicit operational states:
+
+```text
+candidate -> verified -> publishing -> versioned-published
+          -> distribution-verified -> announced
+```
+
+The states are workflow boundaries, not a second release database. A failed run
+is resumed with the same candidate; versioned artifacts are never deleted or
+overwritten. Release notes and mutable aliases are updated only after
+`distribution-verified`. Broad browser E2E remains a PR, nightly, or explicit
+release-impact check rather than a publish or post-publish gate.
 
 Git SHA identifies source; artifact digest identifies bytes; candidate-manifest
 digest identifies a verified candidate; SemVer identifies the published

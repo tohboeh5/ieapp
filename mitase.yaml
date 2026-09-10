@@ -293,6 +293,8 @@ inventory:
             - packages/ugoite/README.md
             - scripts/dev-seed.sh
             - scripts/install-ugoite-cli.sh
+            - scripts/verify-release-cli-quickstart.sh
+            - scripts/verify-release-distribution.sh
             - docs/architecture/release/release-contract.md
             - scripts/ci/mitase-check.sh
             - scripts/verify-release-distribution.sh

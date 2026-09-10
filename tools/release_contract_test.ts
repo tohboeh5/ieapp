@@ -65,13 +65,16 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       "release:prepare",
       "release:candidate",
       "release:verify-candidate",
-      "release:verify-candidate-assets",
+      "release:verify-candidate-smoke",
       "release:write-verification-receipt",
       "release:promote",
     ]
   ) assertEquals(mise.includes(`[tasks."${task}"]`), true, task);
   const candidate = await readText(".github/workflows/release-candidate.yml");
   const publish = await readText(".github/workflows/release-publish.yml");
+  const distributionVerifier = await readText(
+    "scripts/verify-release-distribution.sh",
+  );
   const releaseTool = await readText("tools/release.ts");
   for (const text of [candidate, publish]) {
     assertEquals(text.includes("permissions: {}"), true);
@@ -115,23 +118,16 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   assertEquals(publish.includes("mise run release:verify-candidate"), true);
   assertEquals(publish.includes("mise run release:promote"), true);
-  assertEquals(publish.includes("verify-published-distribution:"), true);
+  assertEquals(publish.includes("verify-distribution:"), true);
   assertEquals(publish.includes("publish-channel-release-notes:"), true);
   assertEquals(publish.includes("release:promote:aliases"), true);
   assertEquals(publish.includes("UGOITE_PROMOTION_DEFER_ALIASES"), false);
-  assertEquals(publish.includes("candidate_id:"), false);
+  assertEquals(publish.includes("candidate_id:"), true);
   assertEquals(publish.includes("--candidate-id"), false);
   assertEquals(publish.includes("--candidate-run-id"), true);
   assertEquals(publish.includes("github.workflow_sha"), true);
   assertEquals(publish.includes("python3"), false);
-  assertEquals(
-    publish.includes("deno eval --allow-read --allow-env --allow-write"),
-    true,
-  );
-  assertEquals(
-    publish.includes("Verify exact candidate assets before publication"),
-    true,
-  );
+  assertEquals(publish.includes("release:verify-candidate-smoke"), true);
   assertEquals(
     publish.includes("Record verification receipt for exact candidate"),
     true,
@@ -149,6 +145,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   assertEquals(publish.includes("verify-release-cli-quickstart.sh"), false);
   assertEquals(publish.includes("e2e:install:browsers"), false);
+  assertEquals(publish.includes("Install Playwright"), false);
   assertEquals(
     publish.includes("ref: ${{ needs.promote.outputs.source_sha }}"),
     false,
@@ -199,6 +196,21 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     false,
   );
   assertEquals(releaseTool.includes("isImmutable"), true);
+  assertEquals(releaseTool.includes("verifyCandidateSmoke"), true);
+  assertEquals(releaseTool.includes('"--pull"'), true);
+  assertEquals(releaseTool.includes('["space", "create"'), true);
+  assertEquals(releaseTool.includes('["space", "list"'), true);
+  assertEquals(distributionVerifier.includes("isImmutable"), true);
+  assertEquals(distributionVerifier.includes("npm view"), true);
+  assertEquals(distributionVerifier.includes("helm pull"), true);
+  assertEquals(distributionVerifier.includes("verification-receipt-"), true);
+  assertEquals(distributionVerifier.includes("/health"), true);
+  const releaseCiStart = mise.indexOf('[tasks."ci:release"]');
+  const releaseCiBody = mise.slice(releaseCiStart);
+  assertEquals(releaseCiBody.includes('{ task = "ci:merge" }'), false);
+  assertEquals(releaseCiBody.includes('{ task = "test:e2e" }'), false);
+  assertEquals(releaseCiBody.includes('{ task = "build" }'), true);
+  assertEquals(releaseCiBody.includes('{ task = "verify" }'), true);
 });
 
 Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering fails", async () => {

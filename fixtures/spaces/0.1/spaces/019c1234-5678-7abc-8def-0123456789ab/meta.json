@@ -1,0 +1,12 @@
+{
+  "space_version": "0.1",
+  "space_id": "019c1234-5678-7abc-8def-0123456789ab",
+  "space_uid": "019c1234-5678-7abc-8def-0123456789ab",
+  "slug": "space-01-history",
+  "id": "019c1234-5678-7abc-8def-0123456789ab",
+  "name": "Space 0.1 History",
+  "created_at": 1762000000.123,
+  "hmac_key_id": "key-fixture-01",
+  "hmac_key": "ZmFrZS1maXh0dXJlLWhtYWMta2V5LTAx",
+  "last_rotation": "2026-03-11T10:00:00Z"
+}

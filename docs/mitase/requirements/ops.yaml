@@ -48,7 +48,7 @@ requirements:
       - id: release-container-verification
         role: evidence
         facet: release-gate
-        responsibility: Connect the local `ci:release` task, release workflow, and distribution verifier that provide the current container evidence.
+        responsibility: Connect the local `ci:release` task, release workflow, and distribution verifier that provide the current container evidence without adding a second runtime authority.
         targets:
           - id: local-release-gate
             adapter: declared
@@ -66,7 +66,7 @@ requirements:
                 anchor: REQ-OPS-002#criterion.release-container-validation
           - id: container-smoke
             adapter: declared
-            path: scripts/verify-release-distribution.sh
+            path: tools/release.ts
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -701,20 +701,20 @@ requirements:
                 runner: { runner: deno-test-file, arguments: { file: tools/workspace_test.ts, test: dev-seed forwards arguments and protects UUID-backed Spaces } }
 
   - id: REQ-OPS-017
-    title: Release Container Publishing and Quick Start
-    description: Promotion publishes the verified runtime image digest without rebuilding and verifies the documented Compose quick start from the published versioned image and Compose assets.
+    title: Release Container Publishing and Health
+    description: Promotion publishes the verified runtime image digest without rebuilding, smoke-tests the exact candidate digest before publication, and verifies health for the published versioned image.
     priority: medium
     status: implemented
     criteria:
       - id: release-container-promotion
         kind: behavior
-        statement: The release publish workflow promotes the verified image and runs the published container quick-start verification against the exact versioned release assets.
+        statement: The release publish workflow smoke-tests the exact candidate image before promotion and verifies the published container digest and health after promotion.
         governed_by: [POL-003#rule.governance, POL-005#rule.governance, POL-008#rule.governance]
     bindings:
       - id: release-container-promotion-evidence
         role: evidence
         facet: release-gate
-        responsibility: Connect the release publish workflow and container quick-start script as generic evidence; release execution remains external repository tooling.
+        responsibility: Connect the release publish workflow and candidate/distribution verifiers as generic evidence; release execution remains external repository tooling.
         targets:
           - id: release-publish-workflow
             adapter: declared
@@ -723,7 +723,7 @@ requirements:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-017#criterion.release-container-promotion
-          - id: container-quickstart-script
+          - id: container-distribution-script
             adapter: declared
             path: scripts/verify-release-distribution.sh
             selector: { kind: file }
@@ -733,19 +733,19 @@ requirements:
 
   - id: REQ-OPS-018
     title: CLI Release Binaries and Install Path
-    description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives before the post-publication installer quick-start gate.
+    description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives after candidate preflight and before post-publication installer distribution checks.
     priority: medium
     status: implemented
     criteria:
       - id: cli-release-installation
         kind: behavior
-        statement: The release publish workflow promotes verified CLI archives and the installer quick-start script verifies the published version and checksum-backed install path without rebuilding.
+        statement: The release publish workflow promotes verified CLI archives and the distribution verifier checks the published version and checksum-backed installer path without rebuilding.
         governed_by: [POL-005#rule.governance, POL-008#rule.governance]
     bindings:
       - id: cli-release-installation-evidence
         role: evidence
         facet: cli-release
-        responsibility: Connect the release publish workflow, public installer, and CLI quick-start verifier as generic repository evidence; release execution remains external repository tooling.
+        responsibility: Connect the release publish workflow, public installer, and distribution verifier as generic repository evidence; release execution remains external repository tooling.
         targets:
           - id: release-publish-workflow
             adapter: declared
@@ -761,7 +761,7 @@ requirements:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-018#criterion.cli-release-installation
-          - id: cli-quickstart-script
+          - id: cli-distribution-script
             adapter: declared
             path: scripts/verify-release-distribution.sh
             selector: { kind: file }

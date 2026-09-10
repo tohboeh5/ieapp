@@ -51,7 +51,7 @@ relation directories are lazy and are not part of bootstrap.
 
 ```json
 {
-  "schema_version": 3,
+  "space_version": "0.1",
   "space_id": "019c1234-5678-7abc-8def-0123456789ab",
   "space_uid": "019c1234-5678-7abc-8def-0123456789ab",
   "slug": "space-main",
@@ -64,7 +64,15 @@ relation directories are lazy and are not part of bootstrap.
 }
 ```
 
-The typed `SpaceMeta` view exposes only portable identity and creation metadata;
+`space_version` is the durable Space compatibility identity. Ugoite Product
+version, Space compatibility version, and physical storage representation are
+separate concepts; a Product 0.2 release can and normally will open Space 0.1.
+Missing, malformed, or unsupported Space Versions fail closed with
+`UNSUPPORTED_SPACE_VERSION` before repair or authoritative mutation, and the
+old `schema_version` field is never used as an alias.
+
+The typed `SpaceMeta` view exposes portable identity, creation metadata, and
+`space_version`;
 `space_uid`/`id` are the immutable machine identity, `slug` is the constrained
 URL/storage identifier, and `name` is the user-facing display name and may use
 Unicode;

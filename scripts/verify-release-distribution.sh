@@ -2,15 +2,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO="${UGOITE_GITHUB_REPO:-${UGOITE_RELEASE_REPOSITORY:-ugoite/ugoite}}"
 VERSION_INPUT="${UGOITE_VERSION:-}"
 RELEASE_TAG_INPUT="${UGOITE_RELEASE_TAG:-v${VERSION_INPUT}}"
 RELEASE_SHA_INPUT="${UGOITE_RELEASE_SHA:-}"
-IMAGE_REPOSITORY="${UGOITE_IMAGE_REPOSITORY:-ghcr.io/ugoite/ugoite}"
-RELEASE_REPOSITORY_INPUT="${UGOITE_RELEASE_REPOSITORY:-ugoite/ugoite}"
+CANDIDATE_ID_INPUT="${UGOITE_CANDIDATE_ID:-}"
 RELEASE_TOKEN_INPUT="${UGOITE_RELEASE_TOKEN:-}"
-ASSET_BASE_URL_INPUT="${UGOITE_RELEASE_ASSET_BASE_URL:-}"
-INSTALL_DIR_INPUT="${UGOITE_INSTALL_DIR:-}"
+ASSET_BASE_URL_INPUT="${UGOITE_RELEASE_ASSET_BASE_URL:-https://github.com/${REPO}/releases/download/${RELEASE_TAG_INPUT}}"
+IMAGE_PORT="${UGOITE_DISTRIBUTION_IMAGE_PORT:-18001}"
+
+if [ -n "$RELEASE_TOKEN_INPUT" ] && [ -z "${GH_TOKEN:-}" ]; then
+  export GH_TOKEN="$RELEASE_TOKEN_INPUT"
+fi
 
 log() {
   printf '%s\n' "$*" >&2
@@ -25,208 +28,213 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
 }
 
-download_asset() {
-  local asset_name="$1"
-  local output_path="$2"
-  local attempt
-  local -a curl_args=(-fsSL)
-
-  if [ -n "$RELEASE_TOKEN_INPUT" ]; then
-    curl_args+=(
-      -H "Authorization: Bearer ${RELEASE_TOKEN_INPUT}"
-      -H "Accept: application/octet-stream"
-    )
-  fi
-
-  for attempt in $(seq 1 10); do
-    if curl "${curl_args[@]}" -o "$output_path" "${ASSET_BASE_URL}/${asset_name}"; then
-      return 0
-    fi
-    if [ "$attempt" -eq 10 ]; then
-      fail "Failed to download ${asset_name} after ${attempt} attempts"
-    fi
-    sleep 3
-  done
-}
-
-detect_target() {
-  case "$(uname -s):$(uname -m)" in
-    Linux:x86_64) printf '%s' 'x86_64-unknown-linux-gnu' ;;
-    Linux:arm64 | Linux:aarch64) printf '%s' 'aarch64-unknown-linux-gnu' ;;
-    Darwin:x86_64) printf '%s' 'x86_64-apple-darwin' ;;
-    Darwin:arm64 | Darwin:aarch64) printf '%s' 'aarch64-apple-darwin' ;;
-    *) fail "Unsupported release CLI target: $(uname -s) $(uname -m)" ;;
-  esac
-}
-
-verify_checksum() {
-  local archive_path="$1"
-  local checksum_path="$2"
-  if command -v sha256sum >/dev/null 2>&1; then
-    (cd "$(dirname "$archive_path")" && sha256sum -c "$(basename "$checksum_path")")
-    return
-  fi
-  local expected actual
-  expected="$(awk '{print $1}' <"$checksum_path")"
-  actual="$(shasum -a 256 "$archive_path" | awk '{print $1}')"
-  [ "$expected" = "$actual" ] || fail "Checksum verification failed for $(basename "$archive_path")"
-}
-
-if [ -z "$VERSION_INPUT" ]; then
-  fail "UGOITE_VERSION must be set to the exact release version"
-fi
-if [ -z "$RELEASE_SHA_INPUT" ]; then
-  fail "UGOITE_RELEASE_SHA must be set to the prepared release commit"
+if [ -z "$VERSION_INPUT" ] || [ -z "$RELEASE_SHA_INPUT" ] || [ -z "$CANDIDATE_ID_INPUT" ]; then
+  fail "UGOITE_VERSION, UGOITE_RELEASE_SHA, and UGOITE_CANDIDATE_ID are required"
 fi
 
 require_command curl
 require_command deno
 require_command docker
 require_command gh
-require_command tar
+require_command helm
+require_command npm
+require_command sha256sum
 
-cd "$REPO_ROOT"
-
-ASSET_BASE_URL="${ASSET_BASE_URL_INPUT:-https://github.com/${RELEASE_REPOSITORY_INPUT}/releases/download/${RELEASE_TAG_INPUT}}"
-WORK_ROOT="$(mktemp -d)"
-INSTALL_DIR="${INSTALL_DIR_INPUT:-$WORK_ROOT/bin}"
-CLI_TARGET="$(detect_target)"
-CLI_ARCHIVE="ugoite-${RELEASE_TAG_INPUT}-${CLI_TARGET}.tar.gz"
-CLI_CHECKSUM="${CLI_ARCHIVE}.sha256"
-CONTAINER_NAME="ugoite-distribution-${RANDOM}-${RANDOM}"
-CONTAINER_STARTED=0
-
+work_root="$(mktemp -d)"
+container_name=""
 cleanup() {
   status=$?
   trap - EXIT HUP INT TERM
-  if [ "$CONTAINER_STARTED" -eq 1 ]; then
-    docker rm --force "$CONTAINER_NAME" >/dev/null 2>&1 || true
+  if [ -n "$container_name" ] && docker container inspect "$container_name" >/dev/null 2>&1; then
+    docker logs "$container_name" >&2 || true
+    docker rm -f "$container_name" >/dev/null 2>&1 || true
   fi
-  rm -rf "$WORK_ROOT"
+  rm -rf "$work_root"
   exit "$status"
 }
 trap cleanup EXIT HUP INT TERM
 
-mkdir -p "$WORK_ROOT/assets"
-if [ -n "$RELEASE_TOKEN_INPUT" ]; then
-  receipt_asset_name="$(GH_TOKEN="$RELEASE_TOKEN_INPUT" gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json assets --jq '.assets[].name' | awk '/^verification-receipt-[^/]+\.json$/ { print; exit }')"
-else
-  receipt_asset_name="$(gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json assets --jq '.assets[].name' | awk '/^verification-receipt-[^/]+\.json$/ { print; exit }')"
-fi
-[ -n "$receipt_asset_name" ] || fail "published release has no verification receipt asset"
-if [ -n "$RELEASE_TOKEN_INPUT" ]; then
-  immutable="$(GH_TOKEN="$RELEASE_TOKEN_INPUT" gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json isImmutable --jq '.isImmutable')"
-else
-  immutable="$(gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json isImmutable --jq '.isImmutable')"
-fi
-[ "$immutable" = "true" ] || fail "published release is not immutable"
-download_asset candidate-manifest.json "$WORK_ROOT/assets/candidate-manifest.json"
-download_asset release-manifest.json "$WORK_ROOT/assets/release-manifest.json"
-download_asset "$receipt_asset_name" "$WORK_ROOT/assets/$receipt_asset_name"
-download_asset docker-compose.release.yaml "$WORK_ROOT/assets/docker-compose.release.yaml"
-download_asset docker-compose.release.yaml.sha256 "$WORK_ROOT/assets/docker-compose.release.yaml.sha256"
-download_asset "$CLI_ARCHIVE" "$WORK_ROOT/assets/$CLI_ARCHIVE"
-download_asset "$CLI_CHECKSUM" "$WORK_ROOT/assets/$CLI_CHECKSUM"
-verify_checksum "$WORK_ROOT/assets/docker-compose.release.yaml" \
-  "$WORK_ROOT/assets/docker-compose.release.yaml.sha256"
-verify_checksum "$WORK_ROOT/assets/$CLI_ARCHIVE" "$WORK_ROOT/assets/$CLI_CHECKSUM"
+download_asset() {
+  local asset_name="$1"
+  local output_path="$2"
+  local -a curl_args=(-fsSL)
+  if [ -n "$RELEASE_TOKEN_INPUT" ]; then
+    curl_args+=(
+      -H "Authorization: Bearer ${RELEASE_TOKEN_INPUT}"
+      -H "Accept: application/octet-stream"
+    )
+  fi
+  curl "${curl_args[@]}" "${ASSET_BASE_URL_INPUT%/}/${asset_name}" -o "$output_path"
+}
 
-export MANIFEST_PATH="$WORK_ROOT/assets/release-manifest.json"
-export CANDIDATE_MANIFEST_PATH="$WORK_ROOT/assets/candidate-manifest.json"
-export VERIFICATION_RECEIPT_PATH="$WORK_ROOT/assets/$receipt_asset_name"
-export COMPOSE_PATH="$WORK_ROOT/assets/docker-compose.release.yaml"
-export COMPOSE_CHECKSUM_PATH="$WORK_ROOT/assets/docker-compose.release.yaml.sha256"
-export CLI_ARCHIVE_PATH="$WORK_ROOT/assets/$CLI_ARCHIVE"
-export CLI_ARCHIVE_NAME="$CLI_ARCHIVE"
-export RELEASE_TAG_INPUT VERSION_INPUT RELEASE_SHA_INPUT IMAGE_REPOSITORY
+manifest_path="$work_root/release-manifest.json"
+download_asset release-manifest.json "$manifest_path"
+
+MANIFEST_PATH="$manifest_path" \
+EXPECTED_RELEASE_TAG="$RELEASE_TAG_INPUT" \
+EXPECTED_VERSION="$VERSION_INPUT" \
+EXPECTED_SOURCE_SHA="$RELEASE_SHA_INPUT" \
+EXPECTED_CANDIDATE_ID="$CANDIDATE_ID_INPUT" \
 deno eval '
-const fail = (message: string): never => {
-  console.error(`distribution validation failed: ${message}`);
-  Deno.exit(1);
+const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
+const expected = {
+  release_tag: Deno.env.get("EXPECTED_RELEASE_TAG"),
+  version: Deno.env.get("EXPECTED_VERSION"),
+  source_sha: Deno.env.get("EXPECTED_SOURCE_SHA"),
+  candidate_id: Deno.env.get("EXPECTED_CANDIDATE_ID"),
 };
-try {
-  const {
-    candidateIdFromManifestBytes,
-    findPublishedReleaseFile,
-    parseCandidateManifest,
-    parsePublishedReleaseManifest,
-    parseVerificationReceipt,
-    RELEASE_SMOKE_POLICY,
-    sha256Hex,
-    validatePublishedReleaseManifest,
-    validateVerificationReceipt,
-  } = await import("./tools/release_verify.ts");
-  const manifest = parsePublishedReleaseManifest(
-    JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!)),
-  );
-  const candidateBytes = await Deno.readFile(Deno.env.get("CANDIDATE_MANIFEST_PATH")!);
-  const candidate = parseCandidateManifest(candidateBytes);
-  const receipt = parseVerificationReceipt(
-    JSON.parse(await Deno.readTextFile(Deno.env.get("VERIFICATION_RECEIPT_PATH")!)),
-  );
-  const candidateId = await candidateIdFromManifestBytes(candidateBytes);
-  validatePublishedReleaseManifest(manifest, {
-    releaseTag: Deno.env.get("RELEASE_TAG_INPUT")!,
-    version: Deno.env.get("VERSION_INPUT")!,
-    sourceSha: Deno.env.get("RELEASE_SHA_INPUT")!,
-    imageRepository: Deno.env.get("IMAGE_REPOSITORY")!,
-    candidateId,
-  });
-  validateVerificationReceipt(receipt, {
-    candidateId,
-    candidateRunId: candidate.ci_run_id,
-    policy: RELEASE_SMOKE_POLICY,
-  });
-  for (const [name, path] of [
-    ["docker-compose.release.yaml", Deno.env.get("COMPOSE_PATH")!],
-    ["docker-compose.release.yaml.sha256", Deno.env.get("COMPOSE_CHECKSUM_PATH")!],
-    [Deno.env.get("CLI_ARCHIVE_NAME")!, Deno.env.get("CLI_ARCHIVE_PATH")!],
-  ] as const) {
-    const record = findPublishedReleaseFile(manifest, name);
-    const bytes = await Deno.readFile(path);
-    if (record.size !== bytes.byteLength || record.sha256 !== await sha256Hex(bytes)) fail(`${name} differs from release manifest`);
-  }
-} catch (error) {
-  fail(error instanceof Error ? error.message : String(error));
+for (const [key, value] of Object.entries(expected)) {
+  if (manifest[key] !== value) throw new Error(`${key} does not match the promoted candidate`);
+}
+if (!manifest.image?.repository || !/^sha256:[0-9a-f]{64}$/.test(manifest.image?.digest ?? "")) {
+  throw new Error("release manifest is missing the published image digest");
 }
 '
 
-log "Verifying published image digest and health"
-EXPECTED_IMAGE_DIGEST="$(deno eval 'const { parsePublishedReleaseManifest } = await import("./tools/release_verify.ts"); console.log(parsePublishedReleaseManifest(JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!))).image.digest)')"
-actual_image_digest="$(docker buildx imagetools inspect "${IMAGE_REPOSITORY}:${VERSION_INPUT}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
-[ "$actual_image_digest" = "$EXPECTED_IMAGE_DIGEST" ] || fail "version tag points to ${actual_image_digest}, expected ${EXPECTED_IMAGE_DIGEST}"
+immutable="$(gh release view "$RELEASE_TAG_INPUT" --repo "$REPO" --json isImmutable --jq .isImmutable)"
+[ "$immutable" = "true" ] || fail "GitHub Release ${RELEASE_TAG_INPUT} is not immutable"
 
-node_secret="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
-docker run --detach --rm --name "$CONTAINER_NAME" \
-  --publish 127.0.0.1::8000 \
-  --env UGOITE_ROOT=/data \
-  --env UGOITE_SERVER_ADDRESS=0.0.0.0:8000 \
-  --env UGOITE_PUBLIC_ORIGIN=http://localhost \
-  --env UGOITE_API_BASE_URL=http://localhost/api \
-  --env UGOITE_WEBAUTHN_RP_ID=localhost \
-  --env "UGOITE_NODE_SECRET_KEY=${node_secret}" \
-  "${IMAGE_REPOSITORY}@${EXPECTED_IMAGE_DIGEST}" >/dev/null
-CONTAINER_STARTED=1
-container_port="$(docker port "$CONTAINER_NAME" 8000/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p')"
-[ -n "$container_port" ] || fail "published container did not expose port 8000"
-for attempt in $(seq 1 60); do
-  if curl -fsS "http://127.0.0.1:${container_port}/health" >/dev/null; then
-    break
-  fi
-  if [ "$attempt" -eq 60 ]; then
-    fail "published container did not become healthy"
-  fi
-  sleep 1
+candidate_manifest_path="$work_root/candidate-manifest.json"
+candidate_id_path="$work_root/candidate-id.txt"
+download_asset candidate-manifest.json "$candidate_manifest_path"
+download_asset candidate-id.txt "$candidate_id_path"
+candidate_manifest_digest="$(sha256sum "$candidate_manifest_path" | awk '{print $1}')"
+[ "sha256:${candidate_manifest_digest}" = "$CANDIDATE_ID_INPUT" ] || fail "Published candidate manifest differs from candidate ID"
+[ "$(tr -d '\r\n' <"$candidate_id_path")" = "$CANDIDATE_ID_INPUT" ] || fail "Published candidate ID asset differs from promotion"
+
+receipt_asset_name="$(gh release view "$RELEASE_TAG_INPUT" --repo "$REPO" --json assets --jq '.assets[].name' | awk '/^verification-receipt-[^/]+\.json$/ { print; exit }')"
+[ -n "$receipt_asset_name" ] || fail "published release has no verification receipt asset"
+receipt_path="$work_root/$receipt_asset_name"
+download_asset "$receipt_asset_name" "$receipt_path"
+MANIFEST_PATH="$manifest_path" \
+  CANDIDATE_MANIFEST_PATH="$candidate_manifest_path" \
+  VERIFICATION_RECEIPT_PATH="$receipt_path" \
+  EXPECTED_CANDIDATE_ID="$CANDIDATE_ID_INPUT" \
+  deno eval '
+const {
+  candidateIdFromManifestBytes,
+  parseCandidateManifest,
+  parsePublishedReleaseManifest,
+  parseVerificationReceipt,
+  RELEASE_SMOKE_POLICY,
+  validateVerificationReceipt,
+} = await import("./tools/release_verify.ts");
+const release = parsePublishedReleaseManifest(
+  JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!)),
+);
+const candidateBytes = await Deno.readFile(Deno.env.get("CANDIDATE_MANIFEST_PATH")!);
+const candidate = parseCandidateManifest(candidateBytes);
+const candidateId = await candidateIdFromManifestBytes(candidateBytes);
+if (candidateId !== Deno.env.get("EXPECTED_CANDIDATE_ID")) {
+  throw new Error("candidate manifest digest differs from the promoted candidate");
+}
+if (release.candidate_id !== candidateId) {
+  throw new Error("release manifest candidate ID differs from the candidate manifest");
+}
+const receipt = parseVerificationReceipt(
+  JSON.parse(await Deno.readTextFile(Deno.env.get("VERIFICATION_RECEIPT_PATH")!)),
+);
+validateVerificationReceipt(receipt, {
+  candidateId,
+  candidateRunId: candidate.ci_run_id,
+  policy: RELEASE_SMOKE_POLICY,
+});
+'
+
+asset_names=()
+while IFS= read -r asset_name; do
+  [ -n "$asset_name" ] && asset_names+=("$asset_name")
+done < <(gh release view "$RELEASE_TAG_INPUT" --repo "$REPO" --json assets --jq '.assets[].name')
+[ "${#asset_names[@]}" -gt 0 ] || fail "GitHub Release has no assets"
+
+for asset_name in "${asset_names[@]}"; do
+  case "$asset_name" in
+    candidate-manifest.json|candidate-id.txt|release-manifest.json|verification-receipt-*.json)
+      continue
+      ;;
+  esac
+  expected_sha="$(ASSET_NAME="$asset_name" MANIFEST_PATH="$manifest_path" deno eval '
+const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
+const name = Deno.env.get("ASSET_NAME")!;
+const file = manifest.files?.find((entry: { name?: string }) => entry.name === name);
+if (!file?.sha256) Deno.exit(1);
+console.log(file.sha256);
+')" || fail "Release asset ${asset_name} is absent from release manifest"
+  asset_path="$work_root/$asset_name"
+  download_asset "$asset_name" "$asset_path"
+  actual_sha="$(sha256sum "$asset_path" | awk '{print $1}')"
+  [ "$actual_sha" = "$expected_sha" ] || fail "Release asset ${asset_name} differs from its manifest digest"
 done
+log "Verified GitHub Release assets"
 
-log "Verifying published CLI installer and version"
-mkdir -p "$INSTALL_DIR"
-HOME="$WORK_ROOT/home" PATH="$INSTALL_DIR:$PATH" UGOITE_VERSION="$VERSION_INPUT" \
-  UGOITE_INSTALL_DIR="$INSTALL_DIR" UGOITE_DOWNLOAD_BASE_URL="$ASSET_BASE_URL" \
-  UGOITE_RELEASE_TOKEN="$RELEASE_TOKEN_INPUT" UGOITE_TARGET_OVERRIDE="$CLI_TARGET" \
-  /bin/bash "$SCRIPT_DIR/install-ugoite-cli.sh"
-version_output="$($INSTALL_DIR/ugoite --version 2>&1)"
-[ "$version_output" = "ugoite ${VERSION_INPUT#v}" ] || \
-  fail "published CLI reported ${version_output}, expected ugoite ${VERSION_INPUT#v}"
+expected_npm_sha="$(MANIFEST_PATH="$manifest_path" deno eval '
+const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
+const file = manifest.files?.find((entry: { name?: string }) => entry.name?.startsWith("ugoite-ugoite-") && entry.name.endsWith(".tgz"));
+if (!file?.sha256) Deno.exit(1);
+console.log(file.sha256);
+')" || fail "Release manifest is missing npm digest"
+npm_url="$(npm view "@ugoite/ugoite@${VERSION_INPUT}" dist.tarball --json | tr -d '"')"
+npm_path="$work_root/npm.tgz"
+declare -a npm_curl_args=(-fsSL)
+if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+  npm_curl_args+=(
+    -H "Authorization: Bearer ${NODE_AUTH_TOKEN}"
+    -H "Accept: application/octet-stream"
+  )
+fi
+curl "${npm_curl_args[@]}" "$npm_url" -o "$npm_path"
+[ "$(sha256sum "$npm_path" | awk '{print $1}')" = "$expected_npm_sha" ] || fail "Published npm package differs from candidate"
 
-log "Published distribution verification passed for ${VERSION_INPUT}"
+helm_digest="$(MANIFEST_PATH="$manifest_path" deno eval '
+const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
+if (!manifest.helm_chart?.digest) Deno.exit(1);
+console.log(manifest.helm_chart.digest);
+')" || fail "Release manifest is missing Helm digest"
+helm_dir="$work_root/helm"
+mkdir -p "$helm_dir"
+helm pull oci://ghcr.io/ugoite/charts/ugoite --version "$VERSION_INPUT" --destination "$helm_dir" >/dev/null
+helm_path="$helm_dir/ugoite-${VERSION_INPUT}.tgz"
+[ "$(sha256sum "$helm_path" | awk '{print $1}')" = "$helm_digest" ] || fail "Published Helm chart differs from candidate"
+log "Verified published npm and Helm artifacts"
+
+image_repository="$(MANIFEST_PATH="$manifest_path" deno eval '
+const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
+console.log(manifest.image.repository);
+')"
+image_digest="$(MANIFEST_PATH="$manifest_path" deno eval '
+const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
+console.log(manifest.image.digest);
+')"
+published_digest="$(docker buildx imagetools inspect "${image_repository}:${VERSION_INPUT}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+[ "$published_digest" = "$image_digest" ] || fail "Published container digest differs from candidate"
+
+container_name="ugoite-distribution-smoke-$$"
+node_secret_key="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
+docker run -d \
+  --name "$container_name" \
+  --tmpfs /data \
+  -p "127.0.0.1:${IMAGE_PORT}:8000" \
+  -e UGOITE_ROOT=/data \
+  -e UGOITE_SERVER_ADDRESS=0.0.0.0:8000 \
+  -e UGOITE_STATIC_DIR=/app/static \
+  -e UGOITE_PUBLIC_ORIGIN="http://localhost:${IMAGE_PORT}" \
+  -e UGOITE_API_BASE_URL="http://localhost:${IMAGE_PORT}/api" \
+  -e UGOITE_WEBAUTHN_RP_ID=localhost \
+  -e UGOITE_NODE_SECRET_KEY="$node_secret_key" \
+  "${image_repository}:${VERSION_INPUT}" >/dev/null
+bash "$SCRIPT_DIR/wait-for-http.sh" "http://localhost:${IMAGE_PORT}/health" 120
+log "Verified published container availability and health"
+
+install_home="$work_root/cli-home"
+install_dir="$install_home/.local/bin"
+mkdir -p "$install_home"
+HOME="$install_home" \
+  UGOITE_VERSION="$VERSION_INPUT" \
+  UGOITE_INSTALL_DIR="$install_dir" \
+  UGOITE_DOWNLOAD_BASE_URL="${ASSET_BASE_URL_INPUT%/}" \
+  UGOITE_RELEASE_TOKEN="$RELEASE_TOKEN_INPUT" \
+  UGOITE_TARGET_OVERRIDE=x86_64-unknown-linux-gnu \
+  bash "$SCRIPT_DIR/install-ugoite-cli.sh"
+installed_version="$("$install_dir/ugoite" --version 2>&1)"
+printf '%s' "$installed_version" | grep -Fq "$VERSION_INPUT" || fail "CLI installer did not install ${VERSION_INPUT}"
+log "Verified CLI installer distribution"

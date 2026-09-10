@@ -37,7 +37,7 @@ Root task composition:
   E2E smoke plus Form-owned Asset acceptance, and version validation;
 - `ci:merge`: `ci` plus `ci:artifacts`;
 - `ci:release`: release artifact build/package/verification plus npm
-  packaging/verification; it does not repeat `ci:merge` or full E2E.
+  packaging/verification; it does not rerun `ci:merge` or full E2E.
 
 Hosted CI schedules the `ci-rust-check`, `ci-rust-test`, `ci-web`, and
 `artifacts` lanes in parallel, then the `ci-required` aggregator preserves the
@@ -112,11 +112,12 @@ post-publish check is limited to distribution identity, container health, and
 CLI installer `--version`. Mutable aliases are updated only after that check
 and release-note publication.
 
-Candidate verification and publication verification are separate. The former
-checks staged bytes and the exact candidate assets; the latter downloads
-published assets and checks distribution identity and availability without
-Playwright or full/smoke browser E2E. Both workflows keep a top-level
-`permissions: {}` boundary and grant only job-scoped permissions.
+Candidate verification and distribution verification are separate. The former
+checks staged bytes and exact candidate runtime inputs; the latter checks
+published bytes, registry identities, container health, and installer
+availability. Neither publish stage runs browser Playwright E2E. Both workflows
+keep a top-level `permissions: {}` boundary and grant only job-scoped
+permissions.
 
 Detailed provenance evidence and planner-ref recovery remain follow-up work, not
 additional v0.1 release authorities.

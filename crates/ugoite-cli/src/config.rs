@@ -308,11 +308,21 @@ fn validate_local_space_candidate(
 ) -> Result<serde_json::Value> {
     let metadata: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path.join("meta.json"))?)?;
+    // Local core mode and the server-backed path share the domain-owned
+    // compatibility classifier. A legacy schema field is never a fallback.
+    if let Err(error) = ugoite_domain::space::classify_space_version(&metadata) {
+        let detected = error.detected().map(str::to_owned);
+        return Err(ugoite_core::error::AppError::unsupported_space_version(
+            detected.as_deref(),
+            ugoite_domain::space::SUPPORTED_SPACE_VERSIONS,
+        )
+        .into());
+    }
     let object = metadata
         .as_object()
         .context("Space metadata must be an object")?;
     const SPACE_METADATA_FIELDS: &[&str] = &[
-        "schema_version",
+        "space_version",
         "space_id",
         "space_uid",
         "slug",
@@ -330,9 +340,9 @@ fn validate_local_space_candidate(
         bail!("Space metadata contains unsupported fields");
     }
     if object
-        .get("schema_version")
-        .and_then(serde_json::Value::as_u64)
-        != Some(3)
+        .get("space_version")
+        .and_then(serde_json::Value::as_str)
+        != Some(ugoite_domain::space::CURRENT_SPACE_VERSION)
         || object.get("space_id").and_then(serde_json::Value::as_str) != Some(directory_id)
         || object.get("id").and_then(serde_json::Value::as_str) != Some(directory_id)
         || object

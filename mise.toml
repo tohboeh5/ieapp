@@ -432,9 +432,9 @@ run = "deno run -A tools/release.ts candidate"
 description = "Verify candidate bytes and manifest integrity without rebuilding"
 run = "deno run -A tools/release.ts verify-candidate"
 
-[tasks."release:verify-candidate-assets"]
-description = "Smoke-test the exact candidate archives and container digest before publication"
-run = "deno run -A tools/release.ts verify-candidate-assets"
+[tasks."release:verify-candidate-smoke"]
+description = "Smoke-test the exact candidate CLI archive and container digest"
+run = "deno run -A tools/release.ts verify-candidate-smoke"
 
 [tasks."release:write-verification-receipt"]
 description = "Record immutable verifier evidence for an exact candidate"
@@ -510,7 +510,7 @@ run = [
 ]
 
 [tasks."ci:release"]
-description = "Build and verify release artifacts without repeating source CI or full E2E"
+description = "Build and verify release artifacts without rerunning merge or full E2E gates"
 run = [
   { task = "build" },
   { task = "package" },
