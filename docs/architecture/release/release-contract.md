@@ -60,13 +60,13 @@ prepared version remain distinguishable. Failed attempts do not advance
 version, all recorded artifact digests, and the candidate eligibility without
 building or packaging anything. The publish preflight then runs
 `release:verify-candidate-smoke` against the exact CLI archive and container
-`repository@digest`; this is the minimum product contract for the candidate
-that will actually be promoted. It writes a
-run-scoped `verification-receipt-<verification_run_id>.json` sidecar containing
-the candidate ID, candidate run, immutable verifier workflow SHA, verification
-run ID, policy, and result. The receipt is evidence attached to the candidate;
-it is not included in the candidate manifest digest. Run-scoped names preserve
-prior evidence when a failed publication is retried.
+`repository@digest`; this is the minimum product contract for the candidate that
+will actually be promoted. It writes a run-scoped
+`verification-receipt-<verification_run_id>.json` sidecar containing the
+candidate ID, candidate run, immutable verifier workflow SHA, verification run
+ID, policy, and result. The receipt is evidence attached to the candidate; it is
+not included in the candidate manifest digest. Run-scoped names preserve prior
+evidence when a failed publication is retried.
 
 ## Promotion
 
