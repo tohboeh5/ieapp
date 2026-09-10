@@ -275,7 +275,32 @@ async function latestPublishedStableVersion(): Promise<Version | null> {
   return versions.sort(compareVersions).at(-1) ?? null;
 }
 
+/**
+ * Run the stable cross-surface acceptance corpus before a candidate may be
+ * recorded. Only executed, non-Playwright evidence qualifies here: the
+ * capability projection integrity check, the CLI core and remote journey
+ * plus parity harnesses, and the Mitase specification graph check. The
+ * Playwright journey stays on the `full` E2E lane until the v0.2 closure.
+ * Any failure refuses candidate creation without touching artifacts.
+ */
+async function qualifyAcceptanceCorpus(): Promise<void> {
+  console.log("qualifying cross-surface acceptance corpus");
+  await run("deno", ["run", "-A", "tools/capability_report.ts", "--json"]);
+  await run("cargo", [
+    "test",
+    "-p",
+    "ugoite-cli",
+    "--test",
+    "test_journey_core",
+    "--test",
+    "test_journey_remote",
+    "--locked",
+  ]);
+  await run("bash", ["scripts/ci/mitase-check.sh"]);
+}
+
 async function createCandidate(): Promise<void> {
+  await qualifyAcceptanceCorpus();
   if (Deno.env.get("UGOITE_RELEASE_CANDIDATE_PREBUILT") !== "true") {
     await run("mise", ["run", "build"]);
     await run("mise", ["run", "package"]);
