@@ -121,6 +121,7 @@ inventory:
             - frontend/src/routes/spaces/[space_id]/entries/new.tsx
             - frontend/src/routes/spaces/[space_id]/entries/new.test.tsx
             - e2e/entries.test.ts
+            - e2e/knowledge-journey.test.ts
             - frontend/src/routes/spaces/[space_id]/entries/[entry_id].tsx
             - frontend/src/routes/spaces/[space_id]/entries/[entry_id]/history.tsx
             - frontend/src/routes/spaces/[space_id]/entries/[entry_id]/history/[revision_id].tsx
@@ -202,6 +203,8 @@ inventory:
             - docs/mitase/features/frontend.yaml
             - docs/mitase/requirements/e2e.yaml
             - docs/mitase/features/e2e.yaml
+            - docs/mitase/requirements/journey.yaml
+            - docs/mitase/features/journey.yaml
             - docs/mitase/requirements/security.yaml
             - docs/mitase/features/security.yaml
             - docs/mitase/features/authentication.yaml

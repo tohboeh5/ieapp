@@ -9,6 +9,7 @@
     "smoke-and-asset-owned": "deno run --node-modules-dir=none -A npm:@playwright/test@^1.60.0 test smoke.test.ts entries.test.ts --grep \"@smoke|@asset-owned\"",
     "owner-recovery": "deno run --node-modules-dir=none -A npm:@playwright/test@^1.60.0 test owner-space-recovery.test.ts",
     "forms": "deno run --node-modules-dir=none -A npm:@playwright/test@^1.60.0 test forms.test.ts",
+    "knowledge-journey": "deno run --node-modules-dir=none -A npm:@playwright/test@^1.60.0 test knowledge-journey.test.ts",
     "full": "deno run --node-modules-dir=none -A npm:@playwright/test@^1.60.0 test --grep-invert @screenshot",
     "screenshot": "deno run --node-modules-dir=none -A npm:@playwright/test@^1.60.0 test ui-pages-screenshots.test.ts"
   },

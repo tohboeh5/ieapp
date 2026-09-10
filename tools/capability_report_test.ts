@@ -122,10 +122,28 @@ Deno.test("capability report projects every journey capability", async () => {
     byId.get("form-establish")?.state,
     "implemented-undiscoverable",
   );
-  // Restore keeps its history semantics but has no e2e evidence wired yet.
-  assertEquals(byId.get("entry-restore")?.state, "evidence-gap");
+  // Restore keeps its history semantics with exact journey evidence wired.
+  assertEquals(byId.get("entry-restore")?.state, "verified");
   const markdown = renderMarkdown(report);
   assertEquals(markdown.includes("JOURNEY-KNOWLEDGE-001"), true);
   assertEquals(markdown.includes("form-establish"), true);
   assertEquals(markdown.includes("entry-restore"), true);
+});
+
+// Mitase declares exact verification targets but never executes tests, so
+// selector/test-name parity is pinned here instead of failing silently.
+Deno.test("journey Mitase selectors match exact Playwright test names", async () => {
+  const testSource = await Deno.readTextFile("e2e/knowledge-journey.test.ts");
+  const yaml = await Deno.readTextFile("docs/mitase/requirements/journey.yaml");
+  const declared = [...yaml.matchAll(/name: '([^']+)'/g)]
+    .map((match) => match[1])
+    .filter((name) => name.startsWith("JOURNEY-"));
+  assertEquals(declared.length, 8);
+  for (const name of declared) {
+    assertEquals(
+      testSource.includes(`test("${name}"`),
+      true,
+      `missing Playwright case ${name}`,
+    );
+  }
 });

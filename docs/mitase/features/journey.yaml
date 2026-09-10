@@ -1,0 +1,150 @@
+schema: mitase/spec/v1
+kind: features
+namespace: journey
+category: Golden Knowledge Journey surface bindings
+features:
+  - id: FEAT-JOURNEY-001
+    title: Golden Knowledge Journey across surfaces
+    summary: Carry JOURNEY-KNOWLEDGE-001 from the portable operation inventory through the server-backed Frontend path to exact Playwright journey evidence. CLI core and CLI remote bindings attach to the same criteria in later workstream steps without duplicating them.
+    status: implemented
+    bindings:
+      - id: frontend
+        role: implementation
+        facet: frontend
+        responsibility: Keep the shipped portable-protocol API modules connected to the journey outcome criteria.
+        targets:
+          - id: space-api
+            adapter: typescript
+            path: frontend/src/lib/space-api.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.space-establish
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.reopen
+          - id: form-api
+            adapter: typescript
+            path: frontend/src/lib/form-api.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.form-establish
+          - id: entry-api
+            adapter: typescript
+            path: frontend/src/lib/entry-api.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-create
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-edit
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-history
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-restore
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.reopen
+          - id: search-api
+            adapter: typescript
+            path: frontend/src/lib/search-api.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.search-keyword
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.reopen
+      - id: server
+        role: operation
+        facet: backend
+        responsibility: Route the journey flow through the Space, Form, Entry, history, restore, and search handlers owned by their capability features. This binding references without owning; handler ownership stays single-sourced.
+        targets:
+          - id: create-space
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: create_space }
+          - id: get-space
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: get_space }
+          - id: upsert-form
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: upsert_form }
+          - id: get-form
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: get_form }
+          - id: create-entry
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: create_entry }
+          - id: update-entry
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: update_entry }
+          - id: entry-history
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: entry_history }
+          - id: entry-revision
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: entry_revision }
+          - id: restore-entry
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: restore_entry }
+          - id: search-entries
+            adapter: rust
+            path: crates/ugoite-server/src/lib.rs
+            selector: { kind: symbol, name: search_entries }
+      - id: contract
+        role: contract-source
+        facet: api
+        responsibility: Define the authoritative HTTP operations exercised by the journey.
+        owns:
+          - id: openapi-source
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: file }
+        targets:
+          - id: create-space
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: /spaces }
+          - id: get-space
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: get, path: '/spaces/{space_id}' }
+          - id: upsert-form
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: '/spaces/{space_id}/forms' }
+          - id: get-form
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: get, path: '/spaces/{space_id}/forms/{form_name}' }
+          - id: create-entry
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: '/spaces/{space_id}/entries' }
+          - id: update-entry
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: put, path: '/spaces/{space_id}/entries/{entry_id}' }
+          - id: entry-history
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: get, path: '/spaces/{space_id}/entries/{entry_id}/history' }
+          - id: entry-revision
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: get, path: '/spaces/{space_id}/entries/{entry_id}/history/{revision_id}' }
+          - id: restore-entry
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: post, path: '/spaces/{space_id}/entries/{entry_id}/restore' }
+          - id: search-keyword
+            adapter: openapi
+            path: crates/ugoite-server/src/openapi.json
+            selector: { kind: operation, method: get, path: '/spaces/{space_id}/search' }
