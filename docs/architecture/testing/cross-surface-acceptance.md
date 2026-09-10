@@ -1,4 +1,6 @@
-# Cross-surface acceptance (JOURNEY-KNOWLEDGE-001)
+---
+title: "Cross-surface acceptance"
+---
 
 Informational. This document describes the acceptance model, not a new
 specification authority. Outcome semantics stay with Mitase Requirement /
