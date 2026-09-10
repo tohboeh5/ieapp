@@ -132,7 +132,14 @@ console.log(file.sha256);
 ')" || fail "Release manifest is missing npm digest"
 npm_url="$(npm view "@ugoite/ugoite@${VERSION_INPUT}" dist.tarball --json | tr -d '"')"
 npm_path="$work_root/npm.tgz"
-curl -fsSL "$npm_url" -o "$npm_path"
+declare -a npm_curl_args=(-fsSL)
+if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+  npm_curl_args+=(
+    -H "Authorization: Bearer ${NODE_AUTH_TOKEN}"
+    -H "Accept: application/octet-stream"
+  )
+fi
+curl "${npm_curl_args[@]}" "$npm_url" -o "$npm_path"
 [ "$(sha256sum "$npm_path" | awk '{print $1}')" = "$expected_npm_sha" ] || fail "Published npm package differs from candidate"
 
 helm_digest="$(MANIFEST_PATH="$manifest_path" deno eval '

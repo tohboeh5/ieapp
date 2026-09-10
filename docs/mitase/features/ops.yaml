@@ -143,7 +143,7 @@ features:
       - id: release-evidence
         role: evidence
         facet: release-gate
-        responsibility: Preserve the local release task, hosted release workflow, and container smoke script as evidence for the release boundary without asserting that this documentation-only slice changes release behavior.
+        responsibility: Preserve the local release task, hosted release workflow, and exact candidate/distribution smoke verifier as evidence for the release boundary without asserting that this documentation-only slice changes release behavior.
         targets:
           - id: local-release-gate
             adapter: declared
@@ -159,9 +159,9 @@ features:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-002#criterion.release-container-validation
-          - id: container-smoke
+          - id: release-distribution-smoke
             adapter: declared
-            path: scripts/verify-release-container-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -440,7 +440,7 @@ features:
       - id: migrated-ops-release-evidence
         role: evidence
         facet: release-installation
-        responsibility: Connect the release promotion and quick-start scripts to the selected Operations requirements as generic repository Artifacts. Release execution remains owned by repository workflows and scripts.
+        responsibility: Connect the release promotion and exact candidate/distribution verification scripts to the selected Operations requirements as generic repository Artifacts. Release execution remains owned by repository workflows and scripts.
         targets:
           - id: release-publish-workflow
             adapter: declared
@@ -451,9 +451,9 @@ features:
                 anchor: REQ-OPS-017#criterion.release-container-promotion
               - kind: evidences
                 anchor: REQ-OPS-018#criterion.cli-release-installation
-          - id: container-quickstart-script
+          - id: distribution-verification-script
             adapter: declared
-            path: scripts/verify-release-container-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -461,13 +461,6 @@ features:
           - id: cli-install-script
             adapter: declared
             path: scripts/install-ugoite-cli.sh
-            selector: { kind: file }
-            claims:
-              - kind: evidences
-                anchor: REQ-OPS-018#criterion.cli-release-installation
-          - id: cli-quickstart-script
-            adapter: declared
-            path: scripts/verify-release-cli-quickstart.sh
             selector: { kind: file }
             claims:
               - kind: evidences
