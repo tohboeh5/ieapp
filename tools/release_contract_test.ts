@@ -271,6 +271,25 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     new TextDecoder().decode(wrongRun.stderr).includes("candidate run ID"),
     true,
   );
+  const promoteWithoutRun = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "-A",
+      "tools/release.ts",
+      "promote",
+      "--candidate",
+      manifestPath,
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(promoteWithoutRun.success, false);
+  assertEquals(
+    new TextDecoder().decode(promoteWithoutRun.stderr).includes(
+      "candidate run ID is required",
+    ),
+    true,
+  );
   await Deno.writeTextFile(
     `${candidateRoot}/npm/ugoite-ugoite-0.1.0.tgz`,
     "tampered",

@@ -66,18 +66,20 @@ async function main(): Promise<void> {
       break;
     case "verify-candidate-assets":
       await verifyCandidateAssets(
-        await verifyCandidate(candidateManifestPath(args), args),
+        await verifyCandidate(candidateManifestPath(args), args, true),
       );
       break;
     case "candidate-id":
       console.log(`sha256:${await sha256File(candidateManifestPath(args))}`);
       break;
     case "promote":
-      await promote(await verifyCandidate(candidateManifestPath(args), args));
+      await promote(
+        await verifyCandidate(candidateManifestPath(args), args, true),
+      );
       break;
     case "promote-aliases":
       await promoteAliases(
-        await verifyCandidate(candidateManifestPath(args), args),
+        await verifyCandidate(candidateManifestPath(args), args, true),
       );
       break;
     case "package-cli":
@@ -296,6 +298,7 @@ async function createCandidate(): Promise<void> {
 async function verifyCandidate(
   manifestPath: string,
   args: string[] = [],
+  requireCandidateRunId = false,
 ): Promise<VerifiedCandidate> {
   await ensureFile(manifestPath, "candidate manifest");
   const bytes = await Deno.readFile(manifestPath);
@@ -329,6 +332,11 @@ async function verifyCandidate(
   const candidateId = `sha256:${await sha256File(manifestPath)}`;
   const expectedRunId = flagValue(args, "--candidate-run-id") ??
     Deno.env.get("UGOITE_CANDIDATE_RUN_ID");
+  if (requireCandidateRunId && !expectedRunId) {
+    throw new Error(
+      "candidate run ID is required for publication verification",
+    );
+  }
   if (expectedRunId && expectedRunId !== manifest.ci_run_id) {
     throw new Error(
       `candidate run ID ${manifest.ci_run_id} does not match requested ${expectedRunId}`,
