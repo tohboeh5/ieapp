@@ -125,6 +125,10 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   assertEquals(publish.includes("github.workflow_sha"), true);
   assertEquals(publish.includes("python3"), false);
   assertEquals(
+    publish.includes("deno eval --allow-read --allow-env --allow-write"),
+    true,
+  );
+  assertEquals(
     publish.includes("Verify exact candidate assets before publication"),
     true,
   );

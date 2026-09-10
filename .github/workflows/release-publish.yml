@@ -55,7 +55,7 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          deno eval '
+          deno eval --allow-read --allow-env --allow-write '
           const manifest = JSON.parse(await Deno.readTextFile("target/artifacts/candidate-manifest.json"));
           const runId = Deno.env.get("CANDIDATE_RUN_ID");
           if (manifest.ci_run_id !== runId) {
