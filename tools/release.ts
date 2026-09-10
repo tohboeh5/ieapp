@@ -297,11 +297,11 @@ async function verifyCandidate(
   const manifest = JSON.parse(
     new TextDecoder().decode(bytes),
   ) as CandidateManifest;
-  if (manifest.schema_version !== 2) {
-    throw new Error("candidate manifest schema_version must be 2");
+  if (manifest.schema_version !== 3) {
+    throw new Error("candidate manifest schema_version must be 3");
   }
-  if (manifest.contract_version !== 2) {
-    throw new Error("candidate manifest contract_version must be 2");
+  if (manifest.contract_version !== 3) {
+    throw new Error("candidate manifest contract_version must be 3");
   }
   if (!Array.isArray(manifest.artifacts)) {
     throw new Error("candidate manifest artifacts must be an array");

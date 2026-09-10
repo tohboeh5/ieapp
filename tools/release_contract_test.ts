@@ -86,7 +86,14 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   assertEquals(candidate.includes("checks: read"), true);
   assertEquals(candidate.includes("ci-required"), true);
+  assertEquals(candidate.includes('and .status == "completed"'), true);
+  assertEquals(candidate.includes('and .conclusion == "success"'), false);
+  assertEquals(
+    candidate.includes('test "${source_ci_required_conclusion}" = success'),
+    true,
+  );
   assertEquals(candidate.includes("source_ci_required_check_run_id"), true);
+  assertEquals(candidate.includes("needs.preflight.result == 'success'"), true);
   assertEquals(
     candidate.includes(
       "source_ci_required_check_run_id: ${{ steps.resolve.outputs.source_ci_required_check_run_id }}",
@@ -99,6 +106,8 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     releaseTool.includes('await run("mise", ["run", "ci:release"])'),
     false,
   );
+  assertEquals(releaseTool.includes("schema_version !== 3"), true);
+  assertEquals(releaseTool.includes("contract_version !== 3"), true);
   assertEquals(
     publish.includes("run-id: ${{ inputs.candidate_run_id }}"),
     true,
@@ -188,8 +197,8 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     ),
   ];
   const manifest = {
-    schema_version: 2,
-    contract_version: 2,
+    schema_version: 3,
+    contract_version: 3,
     version: "0.1.0",
     source_sha: source,
     ci_run_id: "test-run",
@@ -305,7 +314,7 @@ Deno.test("REQ-OPS-044: candidate writer records every promotion surface", async
   const manifest = JSON.parse(
     await Deno.readTextFile(`${artifactRoot}/candidate-manifest.json`),
   ) as { artifacts: Array<{ kind: string }>; schema_version: number };
-  assertEquals(manifest.schema_version, 2);
+  assertEquals(manifest.schema_version, 3);
   assertEquals(
     new Set(manifest.artifacts.map((artifact) => artifact.kind)),
     new Set(["cli", "npm", "helm", "image", "release"]),

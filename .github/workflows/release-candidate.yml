@@ -47,12 +47,14 @@ jobs:
           ci_required_check="$(
             gh api --paginate \
               "repos/${GITHUB_REPOSITORY}/commits/${actual_sha}/check-runs?per_page=100" \
-              --jq '.check_runs[] | select(.name == "ci-required" and .status == "completed" and .conclusion == "success") | [.id, .completed_at] | @tsv' \
+              --jq '.check_runs[] | select(.name == "ci-required" and .status == "completed") | [.id, .completed_at, .conclusion] | @tsv' \
               | sort -t $'\t' -k2,2 | tail -n 1
           )"
           test -n "${ci_required_check}"
           source_ci_required_check_run_id="${ci_required_check%%$'\t'*}"
+          source_ci_required_conclusion="${ci_required_check##*$'\t'}"
           test -n "${source_ci_required_check_run_id}"
+          test "${source_ci_required_conclusion}" = success
           mise run version:check
           version="$(cat version.txt)"
           {
@@ -231,7 +233,7 @@ jobs:
       - build-cli
       - build-npm-helm
       - build-container
-    if: always() && needs.build-cli.result == 'success' && needs.build-npm-helm.result == 'success' && needs.build-container.result == 'success'
+    if: always() && needs.preflight.result == 'success' && needs.build-cli.result == 'success' && needs.build-npm-helm.result == 'success' && needs.build-container.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
