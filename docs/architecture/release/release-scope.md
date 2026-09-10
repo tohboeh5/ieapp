@@ -50,9 +50,9 @@ support, and product claims stay aligned with the implementation.
   asset upload are not supported v0.1 capabilities. TOTP is recovery-only and is
   not a normal login method;
 - the operator-dispatched candidate and promotion workflows publish only a
-  release-grade verified candidate. Promotion is buildless and verifies the
-  published Compose and CLI quick starts; an operator-supported release still
-  requires a successful published version.
+  release-grade verified candidate. Promotion is buildless; exact candidate
+  container/CLI smoke runs precede publication, and post-publication checks
+  verify distribution identity and availability.
 
 Release documentation and changelogs must use these boundaries rather than
 planned capability.

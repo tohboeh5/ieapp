@@ -20,14 +20,14 @@ phases:
   tasks:
   - description: Keep quick-start, authentication, storage, Helm, and troubleshooting docs aligned with implementation.
     done: true
-  - description: Provide a post-publication gate for the published quick-start assets.
+  - description: Provide a post-publication distribution gate for released assets and registry identities.
     done: true
-  - description: Validate a published release through both quick starts.
+  - description: Validate a published release through exact artifact and distribution checks.
     done: false
 - id: release-communication
   status: in_progress
   tasks:
-  - description: Provide channel-specific stable, beta, and alpha release-note publication only after artifact and quick-start verification.
+  - description: Provide channel-specific stable, beta, and alpha release-note publication only after artifact and distribution verification.
     done: true
   - description: Complete a release with published channel-specific notes.
     done: false

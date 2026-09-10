@@ -65,11 +65,15 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       "release:prepare",
       "release:candidate",
       "release:verify-candidate",
+      "release:verify-candidate-smoke",
       "release:promote",
     ]
   ) assertEquals(mise.includes(`[tasks."${task}"]`), true, task);
   const candidate = await readText(".github/workflows/release-candidate.yml");
   const publish = await readText(".github/workflows/release-publish.yml");
+  const distributionVerifier = await readText(
+    "scripts/verify-release-distribution.sh",
+  );
   const releaseTool = await readText("tools/release.ts");
   for (const text of [candidate, publish]) {
     assertEquals(text.includes("permissions: {}"), true);
@@ -114,15 +118,27 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   assertEquals(publish.includes("mise run release:verify-candidate"), true);
   assertEquals(publish.includes("mise run release:promote"), true);
-  assertEquals(publish.includes("verify-published-quickstarts:"), true);
+  assertEquals(publish.includes("candidate_id:"), true);
+  assertEquals(publish.includes("inputs.candidate_id"), false);
+  assertEquals(
+    publish.includes(
+      "description: SHA-256 ID printed by the candidate workflow",
+    ),
+    false,
+  );
+  assertEquals(publish.includes("UGOITE_CANDIDATE_RUN_ID"), true);
+  assertEquals(publish.includes("github.workflow_sha"), true);
+  assertEquals(publish.includes("ref: ${{ github.workflow_sha }}"), true);
+  assertEquals(publish.includes("verify-distribution:"), true);
+  assertEquals(publish.includes("release:verify-candidate-smoke"), true);
+  assertEquals(publish.includes("verify-release-distribution.sh"), true);
   assertEquals(publish.includes("publish-channel-release-notes:"), true);
   assertEquals(publish.includes("release:promote:aliases"), true);
   assertEquals(publish.includes("UGOITE_PROMOTION_DEFER_ALIASES"), false);
-  assertEquals(
-    publish.includes("ref: ${{ needs.promote.outputs.source_sha }}"),
-    false,
-  );
-  assertEquals(publish.includes("ref: main"), true);
+  assertEquals(publish.includes("ref: main"), false);
+  assertEquals(publish.includes("Install Playwright"), false);
+  assertEquals(publish.includes("e2e:install"), false);
+  assertEquals(publish.includes("verify-published-quickstarts"), false);
   const promoteStart = releaseTool.indexOf(
     "async function promote(candidate: VerifiedCandidate)",
   );
@@ -163,6 +179,27 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       .test(publish),
     false,
   );
+  assertEquals(mise.includes("release:verify-candidate-smoke"), true);
+  const releaseCiStart = mise.indexOf('[tasks."ci:release"]');
+  const releaseCiBody = mise.slice(releaseCiStart);
+  assertEquals(releaseCiBody.includes('{ task = "ci:merge" }'), false);
+  assertEquals(releaseCiBody.includes('{ task = "test:e2e" }'), false);
+  assertEquals(releaseCiBody.includes('{ task = "build" }'), true);
+  assertEquals(releaseCiBody.includes('{ task = "verify" }'), true);
+  assertEquals(releaseTool.includes("verifyCandidateSmoke"), true);
+  assertEquals(releaseTool.includes('"--pull"'), true);
+  assertEquals(releaseTool.includes('["space", "create"'), true);
+  assertEquals(releaseTool.includes('["space", "list"'), true);
+  assertEquals(distributionVerifier.includes("isImmutable"), true);
+  assertEquals(distributionVerifier.includes("npm view"), true);
+  assertEquals(distributionVerifier.includes("helm pull"), true);
+  assertEquals(distributionVerifier.includes("/health"), true);
+  assertEquals(distributionVerifier.includes("deno task smoke"), false);
+  const stableReleaseBody = releaseTool.slice(
+    stableReleaseStart,
+    npmStart,
+  );
+  assertEquals(stableReleaseBody.includes("isImmutable"), true);
 });
 
 Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering fails", async () => {
@@ -233,8 +270,6 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
   await Deno.writeFile(manifestPath, manifestBytes);
-  const candidateId = `sha256:${await digest(manifestBytes)}`;
-
   const verify = async (): Promise<Deno.CommandOutput> =>
     await new Deno.Command(Deno.execPath(), {
       args: [
@@ -244,9 +279,8 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
         "verify-candidate",
         "--candidate",
         manifestPath,
-        "--candidate-id",
-        candidateId,
       ],
+      env: { UGOITE_CANDIDATE_RUN_ID: "test-run" },
       stdout: "piped",
       stderr: "piped",
     }).output();
