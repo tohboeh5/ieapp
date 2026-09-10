@@ -281,6 +281,7 @@ log "Running release browser quick-start stories"
   cd "$REPO_ROOT/e2e"
   FRONTEND_URL="http://localhost:8000" \
     BACKEND_URL="http://localhost:8000" \
+    UGOITE_SOURCE_SHA="$RELEASE_SHA_INPUT" \
     E2E_SETUP_SECRET="$E2E_SETUP_SECRET" \
     deno task smoke
 ) 2>&1 | redact_compose_logs
