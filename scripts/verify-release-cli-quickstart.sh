@@ -170,6 +170,60 @@ if (JSON.stringify(actual) !== JSON.stringify(expected)) {
 '
 }
 
+assert_space_create_output() {
+  local expected_slug="$1"
+  local actual_json="$2"
+
+  EXPECTED_SLUG="$expected_slug" \
+    ACTUAL_JSON="$actual_json" \
+    deno eval '
+const expectedSlug = Deno.env.get("EXPECTED_SLUG") ?? "";
+const actualRaw = Deno.env.get("ACTUAL_JSON") ?? "";
+let actual;
+try {
+  actual = JSON.parse(actualRaw);
+} catch (error) {
+  console.error(`space create output: command output was not valid JSON: ${error.message}: ${actualRaw}`);
+  Deno.exit(1);
+}
+if (actual?.created !== true) {
+  console.error(`space create output: expected created=true but got ${JSON.stringify(actual)}`);
+  Deno.exit(1);
+}
+if (actual?.slug !== expectedSlug) {
+  console.error(`space create output: expected slug ${expectedSlug} but got ${JSON.stringify(actual.slug)}`);
+  Deno.exit(1);
+}
+if (typeof actual?.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(actual.id)) {
+  console.error(`space create output: expected a UUID id but got ${JSON.stringify(actual.id)}`);
+  Deno.exit(1);
+}
+'
+}
+
+assert_space_list_contains_id() {
+  local expected_id="$1"
+  local actual_json="$2"
+
+  EXPECTED_ID="$expected_id" \
+    ACTUAL_JSON="$actual_json" \
+    deno eval '
+const expectedId = Deno.env.get("EXPECTED_ID") ?? "";
+const actualRaw = Deno.env.get("ACTUAL_JSON") ?? "";
+let actual;
+try {
+  actual = JSON.parse(actualRaw);
+} catch (error) {
+  console.error(`final space list: command output was not valid JSON: ${error.message}: ${actualRaw}`);
+  Deno.exit(1);
+}
+if (!Array.isArray(actual) || actual.length !== 1 || actual[0] !== expectedId) {
+  console.error(`final space list: expected [${JSON.stringify(expectedId)}] but got ${JSON.stringify(actual)}`);
+  Deno.exit(1);
+}
+'
+}
+
 assert_help_output() {
   local help_output="$1"
 
@@ -289,20 +343,18 @@ create_output="$(
   cd "$WORK_DIR" &&
     "$INSTALLED_BINARY" space create "${SPACE_ROOT}/${SPACE_ID}"
 )"
-assert_json_equals \
-  "space create output" \
-  "{\"created\": true, \"id\": \"${SPACE_ID}\"}" \
-  "$create_output"
+assert_space_create_output "$SPACE_ID" "$create_output"
+created_space_id="$(
+  ACTUAL_JSON="$create_output" \
+    deno eval 'console.log(JSON.parse(Deno.env.get("ACTUAL_JSON")!).id)'
+)"
 log "Verified: space create creates the expected demo space"
 
 list_after_output="$(
   cd "$WORK_DIR" &&
     "$INSTALLED_BINARY" space list "$SPACE_ROOT"
 )"
-assert_json_equals \
-  "final space list" \
-  "[\"${SPACE_ID}\"]" \
-  "$list_after_output"
+assert_space_list_contains_id "$created_space_id" "$list_after_output"
 log "Verified: final space list contains the created space"
 
 log "Quick-start smoke test passed for ${VERSION_INPUT}"
