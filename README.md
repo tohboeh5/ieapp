@@ -70,7 +70,8 @@ Local CI-parity entrypoints:
 - `mise run ci`: formatting, lint, source checks, and the canonical test suite
 - `mise run ci:artifacts`: canonical build/package/verify tasks, focused docsite navigation, E2E smoke/asset acceptance, and release validation
 - `mise run ci:merge`: the complete local merge gate (`ci` plus `ci:artifacts`)
-- `mise run ci:release`: `ci:merge` plus the full E2E suite
+- `mise run ci:release`: release artifact build/package/verification plus npm
+  packaging/verification; it does not rerun `ci:merge` or full E2E
 
 Tasks are defined at the repository root; package-scoped `mise run //...`
 commands are not supported. `build:*` tasks may be skipped locally when declared

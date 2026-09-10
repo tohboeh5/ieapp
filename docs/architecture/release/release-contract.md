@@ -58,36 +58,43 @@ prepared version remain distinguishable. Failed attempts do not advance
 
 `mise run release:verify-candidate` verifies those exact bytes, the source
 version, all recorded artifact digests, and the candidate eligibility without
-building or packaging anything. The publish preflight then runs
-`release:verify-candidate-assets` against the exact CLI archives, npm/Helm
-archives, and container `repository@digest`; this is the minimum product
-contract for the candidate that will actually be promoted.
+building or packaging anything. Publish receives only the candidate workflow run
+ID; it derives `candidate_id` from the exact manifest bytes and verifies that
+the manifest's `ci_run_id` matches the supplied run ID.
 
 ## Promotion
 
-`mise run release:promote -- --candidate <manifest> --candidate-run-id <run>`
-takes the verified candidate as its only release subject. The candidate ID is
-always derived from the exact manifest bytes; the run ID is the only operator
-input and must match `manifest.ci_run_id`. Promotion uses the exact CLI
-archives, npm tarball, Helm archive, release Compose assets, and container
-digest recorded by the manifest. It does not compile, package, or repackage
-them. It publishes immutable versioned identities first, verifies them, and
-finalizes the stable GitHub Release. After the post-publish distribution check,
-the separate `mise run release:promote:aliases` task updates mutable aliases
-such as `latest`.
-
-The publish workflow checks out its verifier and release-note code at
-`github.workflow_sha`, never at the moving `main` ref. The workflow state is
-explicit: candidate, verified, publishing, versioned-published,
-distribution-verified, and announced. A failed later step leaves already
-published versioned identities intact and rerunning the same candidate resumes
-that promotion.
+`mise run release:promote -- --candidate <manifest>` takes the verified
+candidate as its only release subject. The publish workflow accepts only the
+candidate workflow run ID and derives the candidate ID from the exact manifest
+bytes. Promotion uses the exact CLI archives, npm tarball, Helm archive, release
+Compose assets, and container digest recorded by the manifest. It does not
+compile, package, or repackage them. It publishes immutable versioned identities
+first, verifies them, and finalizes the stable GitHub Release. A publish
+preflight starts the exact candidate OCI digest and executes the exact candidate
+CLI archive before any versioned promotion. The workflow checks that the
+resulting GitHub Release is immutable. A separate distribution check then
+verifies the released assets, npm and Helm coordinates, container health, and
+CLI installer before the mutable aliases are changed.
 
 Each publication is idempotent: a missing identity is published, a matching
 identity is verified and skipped, and a different identity aborts. An immutable
 public version with corrupted content is never overwritten or reused. A
 transient failure can safely rerun the same candidate when its artifact storage
 is still available.
+
+Promotion has explicit operational states:
+
+```text
+candidate -> verified -> publishing -> versioned-published
+          -> distribution-verified -> announced
+```
+
+The states are workflow boundaries, not a second release database. A failed run
+is resumed with the same candidate; versioned artifacts are never deleted or
+overwritten. Release notes and mutable aliases are updated only after
+`distribution-verified`. Broad browser E2E remains a PR, nightly, or explicit
+release-impact check rather than a publish or post-publish gate.
 
 Git SHA identifies source; artifact digest identifies bytes; candidate-manifest
 digest identifies a verified candidate; SemVer identifies the published
