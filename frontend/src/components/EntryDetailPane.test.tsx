@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { EntryDetailPane } from "./EntryDetailPane";
-import { entryApi, RevisionConflictError } from "~/lib/ugoite-client";
+import {
+  entryApi,
+  RevisionConflictError,
+  searchApi,
+} from "~/lib/ugoite-client";
 import { UgoiteApiError } from "~/lib/ugoite-client/protocol";
 import { setLocale } from "~/lib/i18n";
 import * as assetReference from "~/lib/asset-reference";
@@ -748,6 +752,56 @@ describe("EntryDetailPane", () => {
     await waitFor(() => expect(createMock).not.toHaveBeenCalled());
     expect(status).toHaveAttribute("aria-invalid", "true");
     validateMock.mockRestore();
+  });
+
+  it("resolves normalized row_reference form ids before loading options", async () => {
+    const rowReferenceOptions = searchApi
+      .rowReferenceOptions as ReturnType<typeof vi.fn>;
+    rowReferenceOptions.mockResolvedValue([
+      { id: "project-alpha", title: "Alpha Project", form: "Project" },
+    ]);
+    const projectForm: Form = {
+      id: "project-form-id",
+      name: "Project",
+      version: 1,
+      template: "# Project\n\n## Summary\n",
+      fields: { Summary: { type: "string", required: true } },
+    };
+    const taskForm: Form = {
+      id: "task-form-id",
+      name: "Task",
+      version: 1,
+      template: "# Task\n\n## Project\n",
+      fields: {
+        Project: {
+          type: "row_reference",
+          required: true,
+          target_form: projectForm.id,
+        },
+      },
+    };
+
+    render(() => (
+      <EntryDetailPane
+        spaceId={() => "default"}
+        forms={() => [projectForm, taskForm]}
+        createForm={() => taskForm}
+        onCreated={vi.fn()}
+        onDeleted={vi.fn()}
+      />
+    ));
+
+    const projectInput = await screen.findByLabelText("Project");
+    fireEvent.input(projectInput, { target: { value: "alpha" } });
+
+    await waitFor(() => {
+      expect(rowReferenceOptions).toHaveBeenCalledWith(
+        "default",
+        "Project",
+        "alpha",
+        8,
+      );
+    });
   });
 
   it("saves from Preview when an upload completes after the Fields view unmounts", async () => {

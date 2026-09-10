@@ -951,11 +951,15 @@ export function EntryDetailPane(props: EntryDetailPaneProps) {
     const value = () => fieldValue(fieldName);
 
     if (fieldDef.type === "row_reference" && fieldDef.target_form?.trim()) {
+      const targetForm = fieldDef.target_form.trim();
+      const targetFormName = props.forms?.().find((form) =>
+        form.id === targetForm
+      )?.name ?? targetForm;
       return (
         <EntryRowReferenceField
           spaceId={props.spaceId()}
           fieldId={fieldId}
-          targetForm={fieldDef.target_form.trim()}
+          targetForm={targetFormName}
           value={value()}
           invalid={invalid()}
           describedBy={invalid() ? describedBy : undefined}
