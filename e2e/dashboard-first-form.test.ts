@@ -62,7 +62,7 @@ test.describe("Dashboard starter-entry onboarding", () => {
 		});
 		await expect(page.locator("#entry-form-selector")).toHaveValue("Entry");
 		await page.getByLabel("Title").fill("Starter quick note");
-		await page.getByRole("button", { name: "Create" }).click();
+		await page.getByRole("button", { name: "Save" }).click();
 		await page.waitForURL(new RegExp(`/spaces/${createdSpaceId}/entries/[^/]+$`), {
 			timeout: 10_000,
 		});
