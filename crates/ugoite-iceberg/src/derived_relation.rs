@@ -94,7 +94,7 @@ impl std::fmt::Display for AssetParserInputLimit {
 impl std::error::Error for AssetParserInputLimit {}
 const MAX_ASSET_REFERENCES_PER_ENTRY: usize = ugoite_domain::entry::MAX_ASSET_REFERENCES_PER_ENTRY;
 const MAX_ASSET_TEXT_MATCHES: usize = 1_000_000;
-pub const MAX_ASSET_TEXT_QUERY_BYTES: usize = 8 * 1024;
+pub const MAX_ASSET_TEXT_QUERY_BYTES: usize = ugoite_core::query::MAX_SEARCH_QUERY_BYTES;
 const MAX_ASSET_TEXT_MATCH_BYTES: usize = 64 * 1024 * 1024;
 const READER_CHUNK_BYTES: usize = 256 * 1024;
 const MINIMUM_GC_AGE: Duration = Duration::from_secs(60 * 60);

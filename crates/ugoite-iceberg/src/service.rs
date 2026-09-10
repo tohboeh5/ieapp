@@ -2519,6 +2519,7 @@ impl UgoiteService {
         space_id: &str,
         query: &str,
     ) -> Result<Vec<search::KeywordSearchResult>> {
+        ugoite_core::query::validate_keyword_query(query)?;
         self.validate_complete_space(space_id).await?;
         search::search_entries(
             &self.operator,
@@ -2540,6 +2541,7 @@ impl UgoiteService {
     }
 
     pub async fn execute_sql_query(&self, space_id: &str, sql: &str) -> Result<Vec<Value>> {
+        index::validate_read_only_sql(sql)?;
         self.validate_complete_space(space_id).await?;
         index::execute_sql_query(&self.operator, &self.workspace_path(space_id), sql).await
     }
@@ -2902,6 +2904,7 @@ impl UgoiteService {
         limit: usize,
         after: Option<(&str, &str, &str)>,
     ) -> Result<Vec<search::KeywordSearchResult>> {
+        ugoite_core::query::validate_keyword_query(query)?;
         require_nonempty_authorized_principals(principal_ids)?;
         self.validate_complete_space(space_id).await?;
         let authorizer = Authorizer::new(self.operator.clone());
@@ -2989,6 +2992,10 @@ impl UgoiteService {
         parameters: serde_json::Map<String, Value>,
         parameter_types: BTreeMap<String, String>,
     ) -> Result<Value> {
+        // Shared read-only admission runs before session planning, checkpoint
+        // resolution, or mutation admission so write/DDL/multi-statement input
+        // fails with READ_ONLY_SQL_REQUIRED on every entry point.
+        index::validate_read_only_sql(sql)?;
         let relation = index::sql_session_page_relation(sql).map_err(|error| {
             AppError::invalid_input(
                 ugoite_core::error::ErrorCode::InvalidInput,
@@ -3900,43 +3907,87 @@ fn map_checkpoint_error(error: anyhow::Error) -> anyhow::Error {
     error
 }
 
+/// Top-level fields accepted by the public Space patch contract. This allow-list
+/// is part of the shared validation error contract: unknown fields must be
+/// reported as a typed 4xx error, never as an internal error.
+pub const ALLOWED_PUBLIC_SPACE_PATCH_FIELDS: &[&str] =
+    &["name", "slug", "storage_config", "settings"];
+
+fn invalid_space_patch(code: ErrorCode, message: impl Into<String>) -> anyhow::Error {
+    AppError::invalid_input(code, message).into()
+}
+
+fn unsupported_space_patch_field_error(unsupported: &[String]) -> anyhow::Error {
+    AppError::invalid_input_with_detail(
+        ErrorCode::UnsupportedSpacePatchField,
+        format!(
+            "space patch contains unsupported field(s): {}. Allowed fields: {}",
+            unsupported.join(", "),
+            ALLOWED_PUBLIC_SPACE_PATCH_FIELDS.join(", ")
+        ),
+        serde_json::json!({
+            "unsupported_fields": unsupported,
+            "allowed_fields": ALLOWED_PUBLIC_SPACE_PATCH_FIELDS,
+        }),
+    )
+    .into()
+}
+
 pub fn validate_public_space_patch(patch: &Value) -> Result<()> {
-    let object = patch
-        .as_object()
-        .context("space patch must be a JSON object")?;
-    for key in object.keys() {
-        if !matches!(
-            key.as_str(),
-            "name" | "slug" | "storage_config" | "settings"
-        ) {
-            bail!("space patch contains unknown field: {key}");
-        }
+    let Some(object) = patch.as_object() else {
+        return Err(invalid_space_patch(
+            ErrorCode::InvalidInput,
+            "space patch must be a JSON object",
+        ));
+    };
+    let mut unsupported: Vec<String> = object
+        .keys()
+        .filter(|key| !ALLOWED_PUBLIC_SPACE_PATCH_FIELDS.contains(&key.as_str()))
+        .cloned()
+        .collect();
+    unsupported.sort();
+    if !unsupported.is_empty() {
+        return Err(unsupported_space_patch_field_error(&unsupported));
     }
     if let Some(name) = object.get("name") {
         if name.as_str().is_none_or(|value| value.trim().is_empty()) {
-            bail!("space patch name must be a non-empty string");
+            return Err(invalid_space_patch(
+                ErrorCode::InvalidInput,
+                "space patch name must be a non-empty string",
+            ));
         }
     }
     if let Some(slug) = object.get("slug") {
-        let slug = slug
-            .as_str()
-            .filter(|value| !value.trim().is_empty())
-            .context("space patch slug must be a non-empty string")?;
+        let Some(slug) = slug.as_str().filter(|value| !value.trim().is_empty()) else {
+            return Err(invalid_space_patch(
+                ErrorCode::InvalidInput,
+                "space patch slug must be a non-empty string",
+            ));
+        };
         validate_storage_id(validate_space_id(slug))?;
     }
     if let Some(storage_config) = object.get("storage_config") {
         if !storage_config.is_object() {
-            bail!("space patch storage_config must be an object");
+            return Err(invalid_space_patch(
+                ErrorCode::InvalidInput,
+                "space patch storage_config must be an object",
+            ));
         }
         if let Some(uri) = storage_config.get("uri") {
             if uri.as_str().is_none_or(|value| value.trim().is_empty()) {
-                bail!("space patch storage_config.uri must be a non-empty string");
+                return Err(invalid_space_patch(
+                    ErrorCode::InvalidInput,
+                    "space patch storage_config.uri must be a non-empty string",
+                ));
             }
         }
     }
     if let Some(settings) = object.get("settings") {
         if !settings.is_object() {
-            bail!("space patch settings must be an object");
+            return Err(invalid_space_patch(
+                ErrorCode::InvalidInput,
+                "space patch settings must be an object",
+            ));
         }
     }
     let reserved_keys: Vec<&str> = patch
@@ -3964,10 +4015,61 @@ pub fn validate_public_space_patch(patch: &Value) -> Result<()> {
         return Ok(());
     }
 
-    Err(anyhow!(
-        "space patch does not allow membership-managed settings keys: {}. Use the dedicated member commands instead.",
-        reserved_keys.join(", ")
+    Err(invalid_space_patch(
+        ErrorCode::InvalidInput,
+        format!(
+            "space patch does not allow membership-managed settings keys: {}. Use the dedicated member commands instead.",
+            reserved_keys.join(", ")
+        ),
     ))
+}
+
+#[cfg(test)]
+mod public_space_patch_validation_tests {
+    use super::{validate_public_space_patch, ALLOWED_PUBLIC_SPACE_PATCH_FIELDS};
+    use ugoite_core::error::{ErrorCode, ErrorKind};
+
+    fn typed_error(patch: serde_json::Value) -> ugoite_core::error::AppError {
+        let error = validate_public_space_patch(&patch).expect_err("patch must be rejected");
+        error
+            .downcast::<ugoite_core::error::AppError>()
+            .expect("space patch validation must be a typed AppError")
+    }
+
+    #[test]
+    fn unknown_top_level_field_is_typed_unsupported_field() {
+        let error = typed_error(serde_json::json!({"unknown_field": "x"}));
+        assert_eq!(error.kind(), ErrorKind::InvalidInput);
+        assert_eq!(error.code(), ErrorCode::UnsupportedSpacePatchField);
+        let detail = error.detail().expect("detail must be present");
+        assert_eq!(
+            detail["unsupported_fields"],
+            serde_json::json!(["unknown_field"])
+        );
+        assert_eq!(
+            detail["allowed_fields"],
+            serde_json::json!(ALLOWED_PUBLIC_SPACE_PATCH_FIELDS)
+        );
+    }
+
+    #[test]
+    fn non_object_and_bad_shapes_are_typed_invalid_input() {
+        for patch in [
+            serde_json::json!("not-an-object"),
+            serde_json::json!({"name": "   "}),
+            serde_json::json!({"storage_config": "not-an-object"}),
+            serde_json::json!({"settings": []}),
+        ] {
+            let error = typed_error(patch);
+            assert_eq!(error.kind(), ErrorKind::InvalidInput);
+            assert_eq!(error.code(), ErrorCode::InvalidInput);
+        }
+    }
+
+    #[test]
+    fn valid_patch_is_accepted() {
+        assert!(validate_public_space_patch(&serde_json::json!({"name": "New name"})).is_ok());
+    }
 }
 
 #[cfg(test)]
