@@ -394,6 +394,13 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-OPS-044#criterion.repository-native-release-promotion
+          - id: release-verifier-core
+            adapter: typescript
+            path: tools/release_verify.ts
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-OPS-044#criterion.repository-native-release-promotion
       - id: planned-ops-evidence
         role: evidence
         facet: planned-work

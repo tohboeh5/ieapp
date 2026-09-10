@@ -391,6 +391,7 @@ requirements:
   verification: traced
   tests:
   - file: tools/release_contract_test.ts
+  - file: tools/release_verify_test.ts
   - file: .github/workflows/release-candidate.yml
   - file: .github/workflows/release-publish.yml
 - set_id: REQCAT-OPS

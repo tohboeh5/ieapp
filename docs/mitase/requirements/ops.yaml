@@ -1005,6 +1005,13 @@ requirements:
             claims:
               - kind: evidences
                 anchor: REQ-OPS-044#criterion.repository-native-release-promotion
+          - id: release-verifier-core
+            adapter: typescript
+            path: tools/release_verify.ts
+            selector: { kind: file }
+            claims:
+              - kind: evidences
+                anchor: REQ-OPS-044#criterion.repository-native-release-promotion
       - id: repository-native-release-verification
         role: verification
         facet: release-test
@@ -1046,3 +1053,12 @@ requirements:
                 criterion: REQ-OPS-044#criterion.repository-native-release-promotion
                 covers: [FEAT-OPS-001#binding.repository-native-release/target.release-implementation]
                 runner: { runner: deno-test-file, arguments: { file: tools/release_contract_test.ts, test: 'REQ-OPS-044: candidate writer records every promotion surface' } }
+          - id: verifier-core-test
+            adapter: typescript
+            path: tools/release_verify_test.ts
+            selector: { kind: file }
+            claims:
+              - kind: verifies
+                criterion: REQ-OPS-044#criterion.repository-native-release-promotion
+                covers: [FEAT-OPS-001#binding.repository-native-release/target.release-implementation]
+                runner: { runner: deno-test-file, arguments: { file: tools/release_verify_test.ts } }

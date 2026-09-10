@@ -78,11 +78,10 @@ verification receipt. Promotion uses the exact CLI archives, npm tarball, Helm
 archive, release Compose assets, and container digest recorded by the manifest.
 It does not compile, package, or repackage them. It publishes immutable
 versioned identities first, verifies them, and finalizes the stable GitHub
-Release. GitHub Immutable Releases is enabled for future releases, and
-promotion verifies that the finalized release reports `isImmutable=true`.
-After the post-publish distribution check, the separate
-`mise run release:promote:aliases` task updates mutable aliases such as
-`latest`.
+Release. GitHub Immutable Releases is enabled for future releases, and promotion
+verifies that the finalized release reports `isImmutable=true`. After the
+post-publish distribution check, the separate `mise run release:promote:aliases`
+task updates mutable aliases such as `latest`.
 
 The publish workflow checks out its verifier and release-note code at
 `github.workflow_sha`, never at the moving `main` ref. The workflow state is
