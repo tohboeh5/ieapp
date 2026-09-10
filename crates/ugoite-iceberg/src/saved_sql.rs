@@ -411,6 +411,31 @@ pub async fn get_sql(op: &Operator, ws_path: &str, sql_id: &str) -> Result<Value
     sql_entry_from_row(&row)
 }
 
+/// Reads the committed saved-SQL revision identity for audit reconciliation,
+/// including tombstones. Returns `(revision_id, parent_revision_id, deleted)`
+/// or `None` when no row was ever committed. Only identity fields cross this
+/// boundary; SQL text and variables never leave storage here.
+pub(crate) async fn read_sql_row_for_audit(
+    op: &Operator,
+    ws_path: &str,
+    sql_id: &str,
+) -> Result<Option<(String, Option<String>, bool)>> {
+    ensure_sql_form(op, ws_path).await?;
+    let row = match entry::read_entry_row(op, ws_path, SQL_FORM_NAME, sql_id).await {
+        Ok(row) => row,
+        Err(error)
+            if error
+                .downcast_ref::<AppError>()
+                .is_some_and(|app| app.code() == ErrorCode::EntryNotFound)
+                || error.to_string().contains("not found") =>
+        {
+            return Ok(None);
+        }
+        Err(error) => return Err(error),
+    };
+    Ok(Some((row.revision_id, row.parent_revision_id, row.deleted)))
+}
+
 pub async fn find_sql_id_by_text(
     op: &Operator,
     ws_path: &str,
