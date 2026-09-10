@@ -67,16 +67,26 @@ semantic-drift > surface-gap > implemented-undiscoverable >
 evidence-gap > verified, so an aliased capability reads as a
 discoverability finding rather than a missing capability or a missing test.
 
-## Status and next steps (planned, not yet implemented)
+## Status and next steps
 
-- C0 (this change): informational projection only.
-- C1-C3 (planned): Golden journey evidence for Frontend, CLI core
-  (`surface=cli, transport=core/local`), and CLI remote
-  (`surface=cli, transport=remote`) as separate evidence identities.
-- C4 (planned): semantic failure corpus (validation category, stale
-  revision conflict, authorization, history semantics). Presentation may
-  differ per surface; codes, classification, and durable state must not.
-- C5-C7 (planned): capability coverage expansion, then promotion of the
-  stable corpus into the release-grade gate. Mitase never executes tests;
-  it declares which exact implementation and verification targets prove a
-  criterion, and the runner proves they pass.
+- C0: informational projection (`tools/capability_report.ts`).
+- C1: Golden journey outcome criteria (REQ-JOURNEY-001) with Frontend
+  evidence (`e2e/knowledge-journey.test.ts`, 8 cases).
+- C2: same scenario through the local/core CLI
+  (`surface=cli, transport=core/local`).
+- C3: same scenario through the server-backed CLI
+  (`surface=cli, transport=remote`) with in-process server evidence.
+  Remote Space creation stays out of scope by product design (browser
+  session with recent Passkey plus node-admin role).
+- C4: mutation semantic parity corpus (REQ-JOURNEY-002) on both CLI
+  transports: validation, conflict, authorization, and history meaning.
+  Presentation wording stays surface-owned.
+- C5: delete parity (tombstone core positive, remote approval guard) and
+  Frontend-only usability criteria (REQ-JOURNEY-003) with no CLI parity.
+- C6: stable executed corpus qualifies release-candidate creation via
+  `qualifyAcceptanceCorpus` in `tools/release.ts`. The Playwright journey
+  stays on the `full` E2E lane until the v0.2 closure.
+- C7 (v0.2, planned): promote unexplained major gaps to release blockers.
+
+Mitase never executes tests; it declares which exact implementation and
+verification targets prove a criterion, and the runner proves they pass.

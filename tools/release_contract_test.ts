@@ -56,6 +56,40 @@ Deno.test("REQ-OPS-044: version.txt is the only prepared-version authority", asy
   }
 });
 
+Deno.test("REQ-OPS-044: candidate creation qualifies the acceptance corpus first", async () => {
+  const releaseTool = await readText("tools/release.ts");
+  for (
+    const marker of [
+      "qualifyAcceptanceCorpus",
+      "tools/capability_report.ts",
+      "test_journey_core",
+      "test_journey_remote",
+      "scripts/ci/mitase-check.sh",
+    ]
+  ) assertEquals(releaseTool.includes(marker), true, marker);
+  const qualifyStart = releaseTool.indexOf(
+    "async function qualifyAcceptanceCorpus(",
+  );
+  const candidateStart = releaseTool.indexOf(
+    "async function createCandidate(",
+  );
+  assertEquals(qualifyStart >= 0 && candidateStart > qualifyStart, true);
+  const qualifyBody = releaseTool.slice(qualifyStart, candidateStart);
+  for (const forbidden of ["playwright", "docker", "e2e"]) {
+    assertEquals(qualifyBody.includes(forbidden), false, forbidden);
+  }
+  const candidateBody = releaseTool.slice(candidateStart, candidateStart + 800);
+  assertEquals(
+    candidateBody.indexOf("await qualifyAcceptanceCorpus();") >= 0,
+    true,
+  );
+  assertEquals(
+    candidateBody.indexOf("await qualifyAcceptanceCorpus();") <
+      candidateBody.indexOf("UGOITE_RELEASE_CANDIDATE_PREBUILT"),
+    true,
+  );
+});
+
 Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are present", async () => {
   const mise = await readText("mise.toml");
   for (
