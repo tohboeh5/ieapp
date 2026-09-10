@@ -215,3 +215,158 @@ requirements:
                   - FEAT-API-001#binding.cli-implementation/target.entry-command
                   - FEAT-JOURNEY-001#binding.cli-core/target.search-command
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+
+  - id: REQ-JOURNEY-002
+    title: Mutation semantic parity
+    description: 'Failed mutations carry identical error classification and durable meaning on every surface that reaches them. Presentation wording may differ; codes, classification, conflict meaning, and the unchanged durable state must not.'
+    priority: high
+    status: implemented
+    criteria:
+      - id: invalid-field
+        kind: behavior
+        statement: Entries with mistyped field values are rejected with field-identifying validation semantics and persist nothing.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: missing-required
+        kind: behavior
+        statement: Entries omitting required fields are rejected with field-identifying validation semantics and persist nothing.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: stale-revision
+        kind: behavior
+        statement: Mutations against a stale parent revision conflict with 409-equivalent semantics and persist nothing.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: restore-unknown-revision
+        kind: behavior
+        statement: Restoring a nonexistent revision is rejected as not-found and leaves history unchanged.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: missing-form
+        kind: behavior
+        statement: Entries referencing an unknown Form are rejected with form-identifying classification and persist nothing.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: remote-authorization
+        kind: behavior
+        statement: Unauthenticated remote mutations are rejected with 401-equivalent semantics and persist nothing. Local core has no auth boundary by design.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+    bindings:
+      - id: journey-parity-core-verification
+        role: verification
+        facet: verification
+        responsibility: Verify the parity corpus through the local/core CLI with explicit surface=cli transport=core/local evidence identity.
+        targets:
+          - id: invalid-field-core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_parity_core_invalid_field_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.invalid-field
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_invalid_field_rejected_without_mutation } }
+          - id: missing-required-core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_parity_core_missing_required_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.missing-required
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_missing_required_rejected_without_mutation } }
+          - id: stale-revision-core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_parity_core_stale_revision_conflicts_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.stale-revision
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_stale_revision_conflicts_without_mutation } }
+          - id: restore-unknown-core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_parity_core_restore_unknown_revision_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.restore-unknown-revision
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_restore_unknown_revision_rejected_without_mutation } }
+          - id: missing-form-core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_parity_core_missing_form_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.missing-form
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_missing_form_rejected_without_mutation } }
+      - id: journey-parity-remote-verification
+        role: verification
+        facet: verification
+        responsibility: Verify the parity corpus through the server-backed CLI with explicit surface=cli transport=remote evidence identity.
+        targets:
+          - id: invalid-field-remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_invalid_field_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.invalid-field
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_invalid_field_rejected_without_mutation } }
+          - id: missing-required-remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_missing_required_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.missing-required
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_missing_required_rejected_without_mutation } }
+          - id: stale-revision-remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_stale_revision_conflicts_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.stale-revision
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_stale_revision_conflicts_without_mutation } }
+          - id: restore-unknown-remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_restore_unknown_revision_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.restore-unknown-revision
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_restore_unknown_revision_rejected_without_mutation } }
+          - id: missing-form-remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_missing_form_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.missing-form
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_missing_form_rejected_without_mutation } }
+          - id: remote-authorization-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_unauthenticated_mutation_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.remote-authorization
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_unauthenticated_mutation_rejected_without_mutation } }
+      - id: journey-parity-frontend-verification
+        role: verification
+        facet: verification
+        responsibility: Verify stale-revision conflict semantics through the exact server-backed browser case. Remaining corpus criteria carry CLI evidence only until dedicated Frontend cases exist.
+        targets:
+          - id: stale-revision-frontend-case
+            adapter: typescript
+            path: e2e/entries.test.ts
+            selector: { kind: test, name: 'PUT with stale revision_id should return 409 conflict' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.stale-revision
+                covers: [FEAT-JOURNEY-001#binding.frontend/target.entry-api]
+                runner: { runner: e2e-playwright, arguments: { file: e2e/entries.test.ts, test: 'PUT with stale revision_id should return 409 conflict' } }

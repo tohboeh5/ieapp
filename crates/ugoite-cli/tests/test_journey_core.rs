@@ -274,3 +274,281 @@ fn test_journey_cli_core_local_durable_outcome() {
     );
     assert!(contains_string(&results, entry_id));
 }
+
+// --- Semantic parity corpus (surface=cli, transport=core/local) ---
+//
+// Each case asserts the same two things the remote corpus asserts: the
+// machine-readable failure classification and the unchanged durable state.
+// Presentation wording is never compared across surfaces.
+
+struct ParitySpace {
+    _dir: tempfile::TempDir,
+    config_path: std::path::PathBuf,
+    space_path: String,
+    form_name: &'static str,
+}
+
+fn setup_parity_space(form_fields: &str) -> ParitySpace {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_string_lossy().to_string();
+    let config_path = dir.path().join("cli-config.json");
+    let space_id = "parity-core-space";
+    let space_path = format!("{root}/spaces/{space_id}");
+    let form_name = "ParityCoreForm";
+
+    let output = run_cli(&config_path, &["create-space", "--root", &root, space_id]);
+    assert!(
+        output.status.success(),
+        "parity setup space create failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let form_file = dir.path().join("parity-core-form.json");
+    std::fs::write(
+        &form_file,
+        format!(
+            "{{\"name\":\"{form_name}\",\"version\":1,\"template\":\"# {form_name}\\n\\n## Status\\n\\n## Body\\n\",\"fields\":{form_fields}}}"
+        ),
+    )
+    .unwrap();
+    let output = run_cli(
+        &config_path,
+        &["form", "update", &space_path, form_file.to_str().unwrap()],
+    );
+    assert!(
+        output.status.success(),
+        "parity setup form establish failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    ParitySpace {
+        _dir: dir,
+        config_path,
+        space_path,
+        form_name,
+    }
+}
+
+fn parity_markdown(form_name: &str, title: &str, status: Option<&str>, body: &str) -> String {
+    let status_section = status
+        .map(|value| format!("\n## Status\n{value}\n"))
+        .unwrap_or_default();
+    format!("---\nform: {form_name}\n---\n# {title}\n{status_section}\n## Body\n{body}\n")
+}
+
+fn entry_absent(space: &ParitySpace, entry_id: &str) {
+    let output = run_cli(
+        &space.config_path,
+        &["entry", "get", &space.space_path, entry_id],
+    );
+    assert!(
+        !output.status.success(),
+        "rejected mutation must not persist an entry"
+    );
+}
+
+/// Invalid field values are rejected with field-identifying validation
+/// semantics and persist nothing.
+#[test]
+fn test_parity_core_invalid_field_rejected_without_mutation() {
+    let space = setup_parity_space(
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Count\":{\"type\":\"double\"},\"Body\":{\"type\":\"markdown\"}}",
+    );
+    let markdown = format!(
+        "---\nform: {}\n---\n# Parity invalid\n\n## Status\nok\n\n## Count\nnot-a-number\n\n## Body\nx\n",
+        space.form_name
+    );
+    let output = run_cli(
+        &space.config_path,
+        &[
+            "entry",
+            "create",
+            "--content",
+            &markdown,
+            &space.space_path,
+            "parity-invalid",
+        ],
+    );
+    assert!(!output.status.success(), "mistyped field must be rejected");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Entry form validation failed"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("Count"), "stderr: {stderr}");
+    entry_absent(&space, "parity-invalid");
+}
+
+/// Missing required fields are rejected and persist nothing.
+#[test]
+fn test_parity_core_missing_required_rejected_without_mutation() {
+    let space = setup_parity_space(
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+    );
+    let markdown = parity_markdown(space.form_name, "Parity missing", None, "x");
+    let output = run_cli(
+        &space.config_path,
+        &[
+            "entry",
+            "create",
+            "--content",
+            &markdown,
+            &space.space_path,
+            "parity-missing",
+        ],
+    );
+    assert!(
+        !output.status.success(),
+        "missing required field must be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Entry form validation failed"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("Status"), "stderr: {stderr}");
+    entry_absent(&space, "parity-missing");
+}
+
+/// Stale parents conflict with 409-equivalent semantics and persist nothing.
+#[test]
+fn test_parity_core_stale_revision_conflicts_without_mutation() {
+    let space = setup_parity_space(
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+    );
+    let v1 = parity_markdown(space.form_name, "Parity stale", Some("ok"), "v1");
+    let created = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &[
+                "entry",
+                "create",
+                "--content",
+                &v1,
+                &space.space_path,
+                "parity-stale",
+            ],
+        ),
+        "parity setup entry create",
+    );
+    assert!(contains_string(&created, "parity-stale"));
+    let history = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &["entry", "history", &space.space_path, "parity-stale"],
+        ),
+        "parity setup history",
+    );
+    let rev1 = revision_ids(&history)[0].clone();
+    let v2 = parity_markdown(space.form_name, "Parity stale v2", Some("ok"), "v2");
+    let markdown_arg = format!("--markdown={v2}");
+    let updated = run_cli(
+        &space.config_path,
+        &[
+            "entry",
+            "update",
+            &space.space_path,
+            "parity-stale",
+            markdown_arg.as_str(),
+            "--parent-revision-id",
+            &rev1,
+        ],
+    );
+    assert!(updated.status.success());
+    let stale = run_cli(
+        &space.config_path,
+        &[
+            "entry",
+            "update",
+            &space.space_path,
+            "parity-stale",
+            markdown_arg.as_str(),
+            "--parent-revision-id",
+            &rev1,
+        ],
+    );
+    assert!(!stale.status.success(), "stale parent must conflict");
+    let stderr = String::from_utf8_lossy(&stale.stderr);
+    assert!(stderr.contains("Revision conflict"), "stderr: {stderr}");
+    let history = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &["entry", "history", &space.space_path, "parity-stale"],
+        ),
+        "parity history after conflict",
+    );
+    assert_eq!(revision_ids(&history).len(), 2);
+}
+
+/// Restoring an unknown revision is rejected as not-found; history unchanged.
+#[test]
+fn test_parity_core_restore_unknown_revision_rejected_without_mutation() {
+    let space = setup_parity_space(
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+    );
+    let v1 = parity_markdown(space.form_name, "Parity restore", Some("ok"), "v1");
+    let created = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &[
+                "entry",
+                "create",
+                "--content",
+                &v1,
+                &space.space_path,
+                "parity-restore",
+            ],
+        ),
+        "parity setup entry create",
+    );
+    assert!(contains_string(&created, "parity-restore"));
+    let output = run_cli(
+        &space.config_path,
+        &[
+            "entry",
+            "restore",
+            &space.space_path,
+            "parity-restore",
+            "00000000-0000-0000-0000-000000000000",
+        ],
+    );
+    assert!(
+        !output.status.success(),
+        "unknown revision must be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("not found"), "stderr: {stderr}");
+    let history = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &["entry", "history", &space.space_path, "parity-restore"],
+        ),
+        "parity history after rejected restore",
+    );
+    assert_eq!(revision_ids(&history).len(), 1);
+}
+
+/// Unknown Forms are rejected with form-identifying classification.
+#[test]
+fn test_parity_core_missing_form_rejected_without_mutation() {
+    let space = setup_parity_space(
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+    );
+    let markdown = parity_markdown("NoSuchFormParity", "Parity noform", Some("ok"), "x");
+    let output = run_cli(
+        &space.config_path,
+        &[
+            "entry",
+            "create",
+            "--content",
+            &markdown,
+            &space.space_path,
+            "parity-noform",
+        ],
+    );
+    assert!(!output.status.success(), "unknown form must be rejected");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Form not found: NoSuchFormParity"),
+        "stderr: {stderr}"
+    );
+    entry_absent(&space, "parity-noform");
+}
