@@ -652,10 +652,22 @@ pub(crate) async fn ensure_existing_space_version(
     workspace_path: &str,
 ) -> Result<()> {
     let meta_path = format!("{}/meta.json", workspace_path.trim_end_matches('/'));
-    if !op.exists(&meta_path).await? {
+    let metadata_exists = tokio::time::timeout(
+        crate::iceberg_store::SPACE_METADATA_READ_TIMEOUT,
+        op.exists(&meta_path),
+    )
+    .await
+    .map_err(|_| anyhow!("timed out reading Space metadata at {meta_path}"))??;
+    if !metadata_exists {
         return Ok(());
     }
-    let metadata: serde_json::Value = serde_json::from_slice(&op.read(&meta_path).await?.to_vec())?;
+    let metadata_bytes = tokio::time::timeout(
+        crate::iceberg_store::SPACE_METADATA_READ_TIMEOUT,
+        op.read(&meta_path),
+    )
+    .await
+    .map_err(|_| anyhow!("timed out reading Space metadata at {meta_path}"))??;
+    let metadata: serde_json::Value = serde_json::from_slice(&metadata_bytes.to_vec())?;
     classify_space_version(&metadata).map_err(|_| unsupported_space_version_error(&metadata))?;
     Ok(())
 }
