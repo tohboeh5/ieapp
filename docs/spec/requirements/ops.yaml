@@ -32,7 +32,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-002
   title: Container Build Validation
-  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without repeating source CI, the publish preflight smoke-tests the exact candidate image digest and records a separate verification receipt, and the post-publish gate verifies distribution identity and health.
+  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without rerunning merge or full E2E gates, the publish preflight smoke-tests the exact candidate image digest and records a separate verification receipt, and the post-publish gate verifies distribution identity and health.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -41,7 +41,7 @@ requirements:
   verification: traced
   tests:
   - file: .github/workflows/release-publish.yml
-  - file: scripts/verify-release-distribution.sh
+  - file: tools/release.ts
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
@@ -288,8 +288,8 @@ requirements:
   linked_policies: *id001
   linked_specifications: *id002
   id: REQ-OPS-017
-  title: Release Container Publishing and Quick Start
-  description: Promotion publishes the verified runtime image digest without rebuilding. The pre-publish gate starts the exact candidate digest, while the post-publish gate verifies the versioned distribution identity and health without browser E2E.
+  title: Release Container Publishing and Health
+  description: Promotion publishes the verified runtime image digest without rebuilding, smoke-tests the exact candidate digest before publication, and verifies health for the published versioned image.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -306,7 +306,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-018
   title: CLI Release Binaries and Install Path
-  description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives before the post-publication installer version check.
+  description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives after the exact candidate CLI preflight; post-publication checks verify installer availability.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -431,7 +431,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-025
   title: Published Release Distribution Verification
-  description: Release automation downloads the published Compose and CLI assets and verifies their identity, the versioned container health, the CLI installer version, and the candidate verification receipt against the exact released version.
+  description: Release automation verifies the published GitHub Release assets, npm/Helm registry identities, container health, CLI installer, and candidate verification receipt against the exact released version.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md

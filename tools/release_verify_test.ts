@@ -150,6 +150,10 @@ Deno.test("release verifier core validates the published distribution projection
       repository: "ghcr.io/ugoite/ugoite",
       digest: `sha256:${"c".repeat(64)}`,
     },
+    helm_chart: {
+      repository: "oci://ghcr.io/ugoite/charts/ugoite",
+      digest: "f".repeat(64),
+    },
   });
   validatePublishedReleaseManifest(published, {
     releaseTag: "v0.1.0",
@@ -159,6 +163,7 @@ Deno.test("release verifier core validates the published distribution projection
     candidateId,
   });
   assertEquals(findPublishedReleaseFile(published, "ugoite.tar.gz").size, 3);
+  assertEquals(published.helm_chart?.digest, "f".repeat(64));
   await assertFails(
     () =>
       validatePublishedReleaseManifest(published, {
@@ -177,5 +182,13 @@ Deno.test("release verifier core validates the published distribution projection
         image: { repository: "ghcr.io/ugoite/ugoite", digest: "invalid" },
       }),
     "image.digest must be a sha256 digest",
+  );
+  await assertFails(
+    () =>
+      parsePublishedReleaseManifest({
+        ...published,
+        files: [{ name: "../release.tgz", sha256: "e".repeat(64), size: 3 }],
+      }),
+    "name must be a file name",
   );
 });

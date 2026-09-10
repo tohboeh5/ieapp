@@ -30,7 +30,8 @@ are new: architecture names the owners and adapters around the Space model.
 - **Quality:** error contracts and fail-closed behavior in
   [Quality architecture](quality/error-handling.md).
 - **Normative contracts:** implementation-facing architecture specifications
-  live under [architecture contracts](contracts/overview.md).
+  live under [architecture contracts](contracts/overview.md), including the
+  [Space compatibility contract](contracts/space-compatibility.md).
 
 The groups are intentionally explanatory entry points. For domains that have
 completed migration, the executable requirements and implementation references

@@ -1,7 +1,7 @@
 # Ugoite
 
-Ugoite is a private, portable Knowledge Space for humans and AI. Knowledge
-stays in an operator-owned Space; a server, browser session, model provider, or
+Ugoite is a private, portable Knowledge Space for humans and AI. Knowledge stays
+in an operator-owned Space; a server, browser session, model provider, or
 generated experience does not become its owner.
 
 > Knowledge persists. Work may disappear. Knowledge can become tools.
@@ -24,8 +24,8 @@ small so it cannot drift into a second manual.
 ## Current reality
 
 - CLI core mode is the shipped direct-local path for an operator-owned Space.
-- The browser is currently server-backed. Browser-local persistence and
-  optional synchronization are planned, not shipped.
+- The browser is currently server-backed. Browser-local persistence and optional
+  synchronization are planned, not shipped.
 - Konase currently provides a portable client-side Work/Job control plane.
   Temporary context, model interaction, and execution progress are Work, not
   durable Knowledge authority.
@@ -66,9 +66,11 @@ mise run e2e:smoke
 
 Local CI-parity entrypoints:
 
-- `mise run test`: the canonical non-E2E Rust, tooling, frontend-coverage, and docsite-coverage suite
+- `mise run test`: the canonical non-E2E Rust, tooling, frontend-coverage, and
+  docsite-coverage suite
 - `mise run ci`: formatting, lint, source checks, and the canonical test suite
-- `mise run ci:artifacts`: canonical build/package/verify tasks, focused docsite navigation, E2E smoke/asset acceptance, and release validation
+- `mise run ci:artifacts`: canonical build/package/verify tasks, focused docsite
+  navigation, E2E smoke/asset acceptance, and release validation
 - `mise run ci:merge`: the complete local merge gate (`ci` plus `ci:artifacts`)
 - `mise run ci:release`: release artifact build/package/verification plus npm
   packaging/verification; it does not repeat `ci:merge` or full E2E
@@ -133,10 +135,12 @@ future scope.
 
 ## API and documentation
 
-- Human API summary: [`docs/architecture/api/rest.md`](docs/architecture/api/rest.md)
+- Human API summary:
+  [`docs/architecture/api/rest.md`](docs/architecture/api/rest.md)
 - Server OpenAPI artifact:
   [`crates/ugoite-server/src/openapi.json`](crates/ugoite-server/src/openapi.json)
-- MCP resource surface: [`docs/architecture/api/mcp.md`](docs/architecture/api/mcp.md)
+- MCP resource surface:
+  [`docs/architecture/api/mcp.md`](docs/architecture/api/mcp.md)
 - Architecture:
   [`docs/architecture/principles/north-star.md`](docs/architecture/principles/north-star.md)
 - Operator guides: [`docs/guide`](docs/guide)
@@ -152,9 +156,9 @@ Prefer package-manager or release-archive installation. The optional npm
 installer verifies release checksums before installing a binary. Do not present
 `curl | sh` as the recommended installation path.
 
-`version.txt` is the canonical prepared product version. Run `mise run version:sync`
-and `mise run version:check` for its Cargo, npm, Helm, and lockfile projections.
-Ordinary pushes do not update release metadata. An
+`version.txt` is the canonical prepared product version. Run
+`mise run version:sync` and `mise run version:check` for its Cargo, npm, Helm,
+and lockfile projections. Ordinary pushes do not update release metadata. An
 operator prepares a compatible or breaking version, merges that release PR,
 dispatches `.github/workflows/release-candidate.yml`, and promotes the exact
 verified candidate with `.github/workflows/release-publish.yml`. Promotion does

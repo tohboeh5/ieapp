@@ -7748,6 +7748,7 @@ async fn create_space(
             "id": space_uid,
             "slug": metadata["slug"],
             "space_uid": space_uid,
+            "space_version": metadata["space_version"],
             "name": metadata["name"],
             "path": state.workspace(&space_uid.to_string())
         })),
@@ -8203,12 +8204,9 @@ async fn create_sql_session(
     Path(space_id): Path<String>,
     Json(payload): Json<SqlSessionCreate>,
 ) -> ApiResult<(StatusCode, Json<Value>)> {
-    if payload.sql.trim().is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "sql is required",
-        ));
-    }
+    // Shared read-only admission before authorization/mutation so write/DDL
+    // fails with READ_ONLY_SQL_REQUIRED on the same contract as core query.
+    ugoite_iceberg::index::validate_read_only_sql(&payload.sql).map_err(ApiError::from_core)?;
     let sql = payload.sql;
     let parameters = payload.parameters;
     let parameter_types = payload.parameter_types;
@@ -9356,15 +9354,8 @@ fn validate_normal_read_limit(limit: usize, operation: &str) -> ApiResult<()> {
 }
 
 fn validate_keyword_search_query(query: &str) -> ApiResult<()> {
-    if query.len() > ugoite_iceberg::derived_relation::MAX_ASSET_TEXT_QUERY_BYTES {
-        return Err(ApiError::from_core(
-            AppError::invalid_input(
-                ErrorCode::InvalidInput,
-                "search query exceeds the configured byte limit",
-            )
-            .into(),
-        ));
-    }
+    ugoite_core::query::validate_keyword_query(query)
+        .map_err(|error| ApiError::from_core(error.into()))?;
     Ok(())
 }
 
@@ -12495,7 +12486,7 @@ mod authentication_regression_tests {
                 )
                 .await?;
             assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-            assert_eq!(body["code"], "INVALID_INPUT", "{body}");
+            assert_eq!(body["code"], "READ_ONLY_SQL_REQUIRED", "{body}");
             assert!(
                 body["message"]
                     .as_str()
@@ -12553,6 +12544,19 @@ mod authentication_regression_tests {
                 "message": "search query exceeds the configured byte limit"
             })
         );
+
+        for empty in ["", "   "] {
+            let error = validate_keyword_search_query(empty)
+                .expect_err("empty keyword query must be rejected before search");
+            assert_eq!(error.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(
+                error.detail,
+                json!({
+                    "code": "SEARCH_QUERY_EMPTY",
+                    "message": "search query must not be empty"
+                })
+            );
+        }
     }
 
     #[test]
@@ -12569,6 +12573,16 @@ mod authentication_regression_tests {
                 "message": "Changing the type of existing Form field 'time' from 'timestamp' to 'date' is not supported; create a new field instead"
             })
         );
+    }
+
+    #[test]
+    fn unsupported_space_patch_field_is_not_an_internal_error() {
+        let validation =
+            ugoite_iceberg::service::validate_public_space_patch(&json!({"unknown_field": "x"}))
+                .expect_err("unknown field must be rejected");
+        let error = ApiError::from_core(validation);
+        assert_eq!(error.status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(error.detail["code"], "UNSUPPORTED_SPACE_PATCH_FIELD");
     }
 
     #[test]

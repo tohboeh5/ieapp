@@ -69,6 +69,10 @@ export type PublishedReleaseManifest = {
     repository: string;
     digest: string;
   };
+  helm_chart?: {
+    repository: string;
+    digest: string;
+  };
 };
 
 export type PublishedReleaseExpectation = {
@@ -284,6 +288,9 @@ export function parsePublishedReleaseManifest(
   ) {
     throw new Error("release manifest image.digest must be a sha256 digest");
   }
+  const helmChart = value.helm_chart === undefined
+    ? undefined
+    : parsePublishedHelmChart(value.helm_chart);
   return {
     schema_version: value.schema_version,
     release_tag: value.release_tag,
@@ -295,6 +302,7 @@ export function parsePublishedReleaseManifest(
       repository: value.image.repository,
       digest: value.image.digest,
     },
+    ...(helmChart ? { helm_chart: helmChart } : {}),
   };
 }
 
@@ -398,6 +406,9 @@ function parsePublishedReleaseFile(
     throw new Error(`release manifest file ${label} must be an object`);
   }
   requireNonEmptyString(value.name, `release manifest file ${label} name`);
+  if (value.name.includes("/") || value.name.includes("\\")) {
+    throw new Error(`release manifest file ${label} name must be a file name`);
+  }
   if (
     typeof value.sha256 !== "string" || !fileDigestPattern.test(value.sha256)
   ) {
@@ -410,6 +421,27 @@ function parsePublishedReleaseFile(
     throw new Error(`release manifest file ${label} size is invalid`);
   }
   return { name: value.name, sha256: value.sha256, size: value.size };
+}
+
+function parsePublishedHelmChart(value: unknown): {
+  repository: string;
+  digest: string;
+} {
+  if (!isRecord(value)) {
+    throw new Error("release manifest helm_chart must be an object");
+  }
+  requireNonEmptyString(
+    value.repository,
+    "release manifest helm_chart.repository",
+  );
+  if (
+    typeof value.digest !== "string" || !fileDigestPattern.test(value.digest)
+  ) {
+    throw new Error(
+      "release manifest helm_chart.digest must be a SHA-256 digest",
+    );
+  }
+  return { repository: value.repository, digest: value.digest };
 }
 
 function assertCandidateId(

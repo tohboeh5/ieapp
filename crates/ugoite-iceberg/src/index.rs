@@ -43,8 +43,6 @@ pub const SQL_SESSION_TIMEOUT: Duration = Duration::from_secs(30);
 pub(crate) const AUTHORIZED_ASSET_REFERENCE_MAX_ROWS: usize = usize::MAX / 2;
 const MAX_QUERY_FORMS: usize = 100_000;
 const MAX_QUERY_FORM_DEFINITION_BYTES: usize = 256 * 1024 * 1024;
-pub(crate) const ASSET_TEXT_SEARCH_MAX_QUERY_BYTES: usize =
-    crate::derived_relation::MAX_ASSET_TEXT_QUERY_BYTES;
 pub(crate) const ASSET_TEXT_SEARCH_MAX_BYTES: usize = 64 * 1024 * 1024;
 pub(crate) const MAX_ASSET_REFERENCES_PER_ENTRY: usize =
     ugoite_domain::entry::MAX_ASSET_REFERENCES_PER_ENTRY;
@@ -1730,6 +1728,7 @@ pub async fn execute_sql_query(
     ws_path: &str,
     sql_query: &str,
 ) -> Result<Vec<Value>> {
+    validate_read_only_sql(sql_query)?;
     execute_datafusion_sql(
         op,
         ws_path,
@@ -2053,6 +2052,48 @@ async fn datafusion_sql_session_context(
         .context("create frozen DataFusion SQL session context")
 }
 
+/// Shared read-only SQL admission. This runs before any SQL-session planning,
+/// checkpoint resolution, or DataFusion execution so that write/DDL,
+/// multi-statement, and non-SELECT input is rejected with the same stable
+/// `READ_ONLY_SQL_REQUIRED` contract on every entry point (core query and
+/// server `sql_session.create`). The inner session-planning invariant
+/// ("paging requires a SELECT statement") remains as a defense-in-depth check,
+/// but normal user input must never reach it.
+pub fn validate_read_only_sql(sql: &str) -> Result<()> {
+    if sql.trim().is_empty() {
+        return Err(AppError::invalid_input(ErrorCode::InvalidInput, "sql is required").into());
+    }
+    let parsed = datafusion::sql::parser::DFParser::parse_sql(sql).map_err(|error| {
+        AppError::invalid_input(
+            ErrorCode::ReadOnlySqlRequired,
+            format!("read-only SQL is required: {error:#}"),
+        )
+    })?;
+    if parsed.len() != 1 {
+        return Err(AppError::invalid_input(
+            ErrorCode::ReadOnlySqlRequired,
+            "read-only SQL is required: expected exactly one SELECT statement",
+        )
+        .into());
+    }
+    let statement = parsed.front().expect("one statement was checked above");
+    let is_select = match statement {
+        datafusion::sql::parser::Statement::Statement(inner) => matches!(
+            inner.as_ref(),
+            datafusion::sql::sqlparser::ast::Statement::Query(_)
+        ),
+        _ => false,
+    };
+    if !is_select {
+        return Err(AppError::invalid_input(
+            ErrorCode::ReadOnlySqlRequired,
+            "read-only SQL is required: only a single SELECT statement is allowed",
+        )
+        .into());
+    }
+    Ok(())
+}
+
 /// Validates the deliberately small first SQL-session pagination surface before
 /// planning it against the caller's authorized, checkpoint-pinned relations.
 ///
@@ -2369,6 +2410,7 @@ async fn execute_datafusion_sql_with_functions(
     checkpoint: Option<SpaceCheckpoint>,
     allowed_functions: BTreeSet<String>,
 ) -> Result<Vec<Value>> {
+    validate_read_only_sql(sql)?;
     let context = datafusion_sql_context(
         op,
         ws_path,
@@ -2397,6 +2439,7 @@ async fn execute_datafusion_sql_page(
     limit: usize,
     parameters: HashMap<String, datafusion::scalar::ScalarValue>,
 ) -> Result<(Vec<Value>, u64)> {
+    validate_read_only_sql(sql)?;
     let context = datafusion_sql_context(
         op,
         ws_path,
@@ -3678,7 +3721,7 @@ async fn build_record(
 mod tests {
     use super::{
         asset_reference_projection, datafusion_parameters, filter_literal, map_sql_error,
-        sql_session_page_relation,
+        sql_session_page_relation, validate_read_only_sql,
     };
     use arrow_array::{ArrayRef, RecordBatch, StringArray};
     use arrow_schema::{DataType, Field, Schema};
@@ -3717,6 +3760,29 @@ mod tests {
             .expect("quoted relation is valid"),
             "form_00000000000000000000000000000001"
         );
+    }
+
+    #[test]
+    fn read_only_admission_rejects_write_before_session_planning() {
+        for sql in [
+            "INSERT INTO t SELECT * FROM t",
+            "UPDATE t SET a = 'x'",
+            "DELETE FROM t",
+            "DROP TABLE t",
+            "SELECT * FROM a; SELECT * FROM b",
+        ] {
+            let error =
+                validate_read_only_sql(sql).expect_err("write input must be rejected early");
+            let app = error
+                .downcast_ref::<ugoite_core::error::AppError>()
+                .expect("admission must be typed");
+            assert_eq!(
+                app.code(),
+                ugoite_core::error::ErrorCode::ReadOnlySqlRequired,
+                "{sql}"
+            );
+        }
+        assert!(validate_read_only_sql("SELECT * FROM t").is_ok());
     }
 
     #[test]

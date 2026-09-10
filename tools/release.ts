@@ -57,6 +57,11 @@ async function main(): Promise<void> {
         await verifyCandidate(candidateManifestPath(args), args, true),
       );
       break;
+    case "verify-candidate-smoke":
+      await verifyCandidateAssets(
+        await verifyCandidate(candidateManifestPath(args), args, true),
+      );
+      break;
     case "write-verification-receipt":
       await writeVerificationReceipt(args);
       break;
@@ -558,10 +563,7 @@ async function verifyCandidateHelmArchive(
       "-C",
       tempDir,
     ]);
-    await run("helm", [
-      "lint",
-      pathJoin(tempDir, "ugoite"),
-    ]);
+    await run("helm", ["lint", pathJoin(tempDir, "ugoite")]);
   } finally {
     await Deno.remove(tempDir, { recursive: true }).catch(() => {});
   }

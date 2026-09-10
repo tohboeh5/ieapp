@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::time::Duration;
 use ugoite_core::error::{AppError, ErrorCode};
 use ugoite_core::query::EntryScope;
 use ugoite_domain::entry::EntryRevision;
@@ -12,15 +13,34 @@ use ugoite_domain::id::SpaceId;
 use ugoite_storage::SpaceCatalogStore;
 use uuid::Uuid;
 
+pub(crate) const SPACE_METADATA_READ_TIMEOUT: Duration = Duration::from_secs(5);
+
 async fn stable_space_id(operator: &Operator, workspace_path: &str) -> Result<SpaceId> {
     let metadata_path = format!("{}/meta.json", workspace_path.trim_end_matches('/'));
-    if !operator.exists(&metadata_path).await? {
+    let metadata_exists =
+        tokio::time::timeout(SPACE_METADATA_READ_TIMEOUT, operator.exists(&metadata_path))
+            .await
+            .map_err(|error| {
+                anyhow::Error::new(error).context(format!(
+                    "timed out reading Space metadata at {metadata_path}"
+                ))
+            })??;
+    if !metadata_exists {
         return Err(anyhow::anyhow!(
             "unsupported Space layout: missing immutable metadata at {metadata_path}"
         ));
     }
-    let metadata: Value =
-        serde_json::from_slice(&crate::read_object_exact(operator, &metadata_path).await?)?;
+    let metadata_bytes = tokio::time::timeout(
+        SPACE_METADATA_READ_TIMEOUT,
+        crate::read_object_exact(operator, &metadata_path),
+    )
+    .await
+    .map_err(|error| {
+        anyhow::Error::new(error).context(format!(
+            "timed out reading Space metadata at {metadata_path}"
+        ))
+    })??;
+    let metadata: Value = serde_json::from_slice(&metadata_bytes)?;
     let directory_id = workspace_path
         .trim_matches('/')
         .rsplit('/')
@@ -50,8 +70,21 @@ pub async fn native_mutation_workspace(
     operator: &Operator,
     workspace_path: &str,
 ) -> Result<crate::IcebergWorkspace> {
+    let space_id = stable_space_id(operator, workspace_path)
+        .await
+        .map_err(|error| {
+            if error.chain().any(|cause| {
+                cause.downcast_ref::<opendal::Error>().is_some()
+                    || cause
+                        .downcast_ref::<tokio::time::error::Elapsed>()
+                        .is_some()
+            }) {
+                storage_mutation_unavailable(error)
+            } else {
+                error
+            }
+        })?;
     let store = mutation_store(operator, workspace_path).await?;
-    let space_id = stable_space_id(operator, workspace_path).await?;
     crate::IcebergWorkspace::open_space(store, space_id, crate::WriteConfig::default()).await
 }
 
@@ -59,6 +92,17 @@ pub async fn native_mutation_workspace(
 /// This is used by mutation helpers that write an object before opening an
 /// Iceberg workspace, such as asset upload and authorization bootstrap.
 pub async fn ensure_mutation_admitted(operator: &Operator, workspace_path: &str) -> Result<()> {
+    match crate::space::ensure_existing_space_version(operator, workspace_path).await {
+        Ok(()) => {}
+        Err(error)
+            if error
+                .downcast_ref::<AppError>()
+                .is_some_and(|error| error.code() == ErrorCode::UnsupportedSpaceVersion) =>
+        {
+            return Err(error);
+        }
+        Err(error) => return Err(storage_mutation_unavailable(error)),
+    }
     mutation_store(operator, workspace_path)
         .await
         .map(|_| ())

@@ -37,7 +37,7 @@ Root task composition:
   E2E smoke plus Form-owned Asset acceptance, and version validation;
 - `ci:merge`: `ci` plus `ci:artifacts`;
 - `ci:release`: release artifact build/package/verification plus npm
-  packaging/verification; it does not repeat `ci:merge` or full E2E.
+  packaging/verification; it does not rerun `ci:merge` or full E2E.
 
 Hosted CI schedules the `ci-rust-check`, `ci-rust-test`, `ci-web`, and
 `artifacts` lanes in parallel, then the `ci-required` aggregator preserves the
@@ -98,25 +98,28 @@ identity and policy separately in a run-scoped
 `verification-receipt-<verification_run_id>.json` sidecar.
 
 `Release Publish` accepts only a candidate run ID, downloads the candidate
-artifact, derives the candidate ID from the manifest bytes, and invokes
-`release:verify-candidate` before promotion. The promotion job contains no
-compile, build, pack, package, or repackage step. It publishes the exact CLI
-archives, npm tarball, Helm archive, release Compose assets, and container
-digest from the manifest, together with a separate verification receipt.
-The receipt records the immutable verifier workflow SHA and verification run
-ID without changing candidate identity. Missing identities are published, matching
-identities are verified and skipped, and mismatches abort. Immutable versioned
-identities are verified before the GitHub Release is finalized; a pre-publish
-asset smoke uses the exact candidate archive and `repository@digest`, while a
-post-publish check is limited to distribution identity, container health, and
-CLI installer `--version`. Mutable aliases are updated only after that check
-and release-note publication.
+artifact, derives its candidate ID from the exact manifest bytes, and invokes
+`release:verify-candidate` before promotion. Its verifier is checked out at
+`github.workflow_sha`, not from a moving default-branch ref. The publish
+preflight starts the exact candidate container digest and runs the exact CLI
+archive before promotion. The promotion job contains no compile, build, pack,
+package, or repackage step. It publishes the exact CLI archives, npm tarball,
+Helm archive, release Compose assets, and container digest from the manifest.
+The promotion also attaches a run-scoped verification receipt containing the
+candidate ID, candidate run, verifier workflow SHA, verification run ID, policy,
+and result; this evidence is separate from candidate identity. Missing
+identities are published, matching identities are verified and skipped, and
+mismatches abort. Immutable versioned identities are verified before the GitHub
+Release is finalized. A separate distribution check verifies released assets,
+registry artifacts, container health, and the CLI installer; mutable aliases are
+updated only after that check and release-note publication.
 
-Candidate verification and publication verification are separate. The former
-checks staged bytes and the exact candidate assets; the latter downloads
-published assets and checks distribution identity and availability without
-Playwright or full/smoke browser E2E. Both workflows keep a top-level
-`permissions: {}` boundary and grant only job-scoped permissions.
+Candidate verification and distribution verification are separate. The former
+checks staged bytes and exact candidate runtime inputs; the latter checks
+published bytes, registry identities, container health, and installer
+availability. Neither publish stage runs browser Playwright E2E. Both workflows
+keep a top-level `permissions: {}` boundary and grant only job-scoped
+permissions.
 
 Detailed provenance evidence and planner-ref recovery remain follow-up work, not
 additional v0.1 release authorities.

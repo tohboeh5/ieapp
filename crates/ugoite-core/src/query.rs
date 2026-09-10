@@ -9,6 +9,13 @@ use std::time::Duration;
 use ugoite_domain::checkpoint::SpaceCheckpoint;
 use ugoite_domain::id::{EntryId, FormId};
 
+use crate::error::{AppError, ErrorCode};
+
+/// Maximum keyword query size in bytes. This is the shared Search admission
+/// bound: every Search entry point (core service, server handler, CLI) must
+/// reject larger input before touching Storage, DataFusion, or derived search.
+pub const MAX_SEARCH_QUERY_BYTES: usize = 8 * 1024;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthorizedQueryPolicy {
     pub forms: BTreeMap<FormId, AuthorizedQueryForm>,
@@ -121,5 +128,51 @@ impl QueryLimits {
             return Err("query concurrency limit must be positive");
         }
         Ok(())
+    }
+}
+
+/// Shared Search admission: an empty or whitespace-only keyword is not a valid
+/// Ugoite operation. Callers must reject it before any broad scan, Storage
+/// read, or derived-search fan-out.
+pub fn validate_keyword_query(query: &str) -> Result<(), AppError> {
+    if query.trim().is_empty() {
+        return Err(AppError::invalid_input(
+            ErrorCode::SearchQueryEmpty,
+            "search query must not be empty",
+        ));
+    }
+    if query.len() > MAX_SEARCH_QUERY_BYTES {
+        return Err(AppError::invalid_input(
+            ErrorCode::InvalidInput,
+            "search query exceeds the configured byte limit",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_and_whitespace_queries_are_rejected_before_search() {
+        for query in ["", "   ", "\n\t "] {
+            let error = validate_keyword_query(query).expect_err("empty query must fail");
+            assert_eq!(error.code(), ErrorCode::SearchQueryEmpty);
+            assert_eq!(error.kind(), crate::error::ErrorKind::InvalidInput);
+        }
+    }
+
+    #[test]
+    fn oversized_query_is_rejected_at_admission() {
+        let error = validate_keyword_query(&"x".repeat(MAX_SEARCH_QUERY_BYTES + 1))
+            .expect_err("oversized query must fail");
+        assert_eq!(error.code(), ErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn normal_query_is_accepted() {
+        assert!(validate_keyword_query("hello").is_ok());
+        assert!(validate_keyword_query(&"x".repeat(MAX_SEARCH_QUERY_BYTES)).is_ok());
     }
 }

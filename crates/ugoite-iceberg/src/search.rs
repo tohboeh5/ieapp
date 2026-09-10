@@ -137,14 +137,18 @@ pub(crate) async fn search_entries_with_scopes_after_authorized(
     after: Option<(&str, &str, &str)>,
     asset_authorization: Option<AssetAuthorization>,
 ) -> Result<Vec<KeywordSearchResult>> {
-    if query.len() > crate::index::ASSET_TEXT_SEARCH_MAX_QUERY_BYTES {
-        anyhow::bail!("AssetText search query exceeds the configured byte limit");
-    }
+    // Shared Search admission: empty keyword is not a Ugoite operation.
+    // Reject before any Storage/DataFusion/derived work (broad scan guard).
+    ugoite_core::query::validate_keyword_query(query)?;
     if limit > crate::MAX_NORMAL_READ_ROWS {
-        anyhow::bail!(
-            "AssetText search result limit exceeds {} rows",
-            crate::MAX_NORMAL_READ_ROWS
-        );
+        return Err(ugoite_core::error::AppError::invalid_input(
+            ugoite_core::error::ErrorCode::InvalidInput,
+            format!(
+                "AssetText search result limit exceeds {} rows",
+                crate::MAX_NORMAL_READ_ROWS
+            ),
+        )
+        .into());
     }
     let result_budget = crate::index::AssetTextSearchBudget::new();
     let candidates = crate::index::query_entry_candidates_authorized_after(
@@ -1183,7 +1187,7 @@ mod tests {
         let error = search_entries_with_scopes(
             &operator,
             "spaces/missing",
-            &"x".repeat(crate::index::ASSET_TEXT_SEARCH_MAX_QUERY_BYTES + 1),
+            &"x".repeat(ugoite_core::query::MAX_SEARCH_QUERY_BYTES + 1),
             &BTreeMap::new(),
             10,
         )

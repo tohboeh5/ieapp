@@ -24,6 +24,8 @@ roots:
 space_layout:
   bootstrap:
     operation: create_space
+    notes:
+    - Space metadata carries space_version: "0.1" as the durable compatibility identity; this layout inventory version is repository-local and is not a Space Version.
     entries:
     - path: spaces/{space_id}
       kind: directory
