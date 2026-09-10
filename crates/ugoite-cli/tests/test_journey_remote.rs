@@ -1,0 +1,405 @@
+//! JOURNEY-KNOWLEDGE-001 through the server-backed CLI.
+//!
+//! Evidence identity: surface=cli, transport=remote. This runs the same
+//! scenario as the core journey (Space create -> Form establish -> Entry
+//! create -> Entry edit -> Search -> History -> Restore -> Reopen) through
+//! the remote transport (`http::execute` operation calls) against a real
+//! in-process server, and asserts the same durable postconditions through
+//! canonical reads. Transport and auth ceremony stay in setup; validation,
+//! concurrency, and history semantics must match the core outcome.
+
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use chrono::Utc;
+use p256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng, pkcs8::EncodePrivateKey};
+use serde_json::json;
+use std::process::Output;
+use std::time::Duration;
+use tempfile::tempdir;
+use tokio::net::TcpListener;
+use tokio::process::Command;
+use tokio::task::JoinHandle;
+use ugoite_cli::config::{AuthSession, EndpointConfig, EndpointMode};
+use ugoite_server::{app, AppState};
+
+struct ServerGuard(JoinHandle<()>);
+
+impl Drop for ServerGuard {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+fn ugoite_bin() -> std::path::PathBuf {
+    if let Some(path) = option_env!("CARGO_BIN_EXE_ugoite") {
+        return std::path::PathBuf::from(path);
+    }
+
+    let mut path = std::env::current_exe().expect("current exe");
+    path.pop();
+    if path.ends_with("deps") {
+        path.pop();
+    }
+    path.push("ugoite");
+    path
+}
+
+fn test_key_and_jwk() -> (SigningKey, serde_json::Value) {
+    let key = SigningKey::random(&mut OsRng);
+    let point = key.verifying_key().to_encoded_point(false);
+    let jwk = json!({
+        "kty": "EC",
+        "crv": "P-256",
+        "x": URL_SAFE_NO_PAD.encode(point.x().expect("public key x")),
+        "y": URL_SAFE_NO_PAD.encode(point.y().expect("public key y")),
+    });
+    (key, jwk)
+}
+
+async fn run_cli(config_path: &std::path::Path, args: &[&str]) -> Output {
+    Command::new(ugoite_bin())
+        .args(args)
+        .env("UGOITE_CLI_CONFIG_PATH", config_path)
+        .output()
+        .await
+        .expect("run ugoite")
+}
+
+fn stdout_json(output: &Output, what: &str) -> serde_json::Value {
+    assert!(
+        output.status.success(),
+        "{what} failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    serde_json::from_str(&stdout).unwrap_or_else(|_| panic!("{what} stdout is not JSON: {stdout}"))
+}
+
+fn contains_string(value: &serde_json::Value, needle: &str) -> bool {
+    match value {
+        serde_json::Value::String(text) => text == needle,
+        serde_json::Value::Array(items) => items.iter().any(|item| contains_string(item, needle)),
+        serde_json::Value::Object(fields) => {
+            fields.values().any(|item| contains_string(item, needle))
+        }
+        _ => false,
+    }
+}
+
+fn contains_substring(value: &serde_json::Value, needle: &str) -> bool {
+    match value {
+        serde_json::Value::String(text) => text.contains(needle),
+        serde_json::Value::Array(items) => {
+            items.iter().any(|item| contains_substring(item, needle))
+        }
+        serde_json::Value::Object(fields) => {
+            fields.values().any(|item| contains_substring(item, needle))
+        }
+        _ => false,
+    }
+}
+
+fn revision_ids(history: &serde_json::Value) -> Vec<String> {
+    history
+        .get("revisions")
+        .and_then(|revisions| revisions.as_array())
+        .unwrap_or_else(|| panic!("history has no revisions array: {history}"))
+        .iter()
+        .map(|revision| {
+            revision
+                .get("revision_id")
+                .and_then(|id| id.as_str())
+                .unwrap_or_else(|| panic!("revision has no revision_id: {revision}"))
+                .to_string()
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn journey_cli_remote_reaches_durable_outcome() {
+    tokio::time::timeout(Duration::from_secs(120), journey_cli_remote())
+        .await
+        .expect("journey CLI remote test timed out");
+}
+
+async fn journey_cli_remote() {
+    // Real server over loopback TCP with test-issued REST access: the only
+    // fixture is transport and auth ceremony, never business semantics.
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind server");
+    let address = listener.local_addr().expect("server address");
+    let server_url = format!("http://localhost:{}", address.port());
+    // Without UGOITE_STATIC_DIR the app merges API routes at the root, so
+    // the API base is the bare server URL (no /api prefix).
+    let api_base = server_url.clone();
+    let state = AppState::new_for_tests_with_origin(
+        format!("memory://cli-journey-remote-{}", uuid::Uuid::now_v7()),
+        &server_url,
+    )
+    .expect("server state");
+    state.initialize_node().await.expect("initialize server");
+    let (key, public_key_jwk) = test_key_and_jwk();
+    let access = state_issue_rest_access(&state, public_key_jwk.clone()).await;
+    let _server = ServerGuard(tokio::spawn(async move {
+        axum::serve(listener, app(state))
+            .await
+            .expect("integrated server exited unexpectedly");
+    }));
+
+    let probe = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .expect("build probe client");
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        match probe.get(format!("{api_base}/spaces")).send().await {
+            Ok(response) if (response.status().as_u16()) < 500 => break,
+            _ if std::time::Instant::now() < deadline => {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            other => panic!("server never became reachable: {other:?}"),
+        }
+    }
+
+    let config_dir = tempdir().expect("config directory");
+    let config_path = config_dir.path().join("cli-endpoints.json");
+    let credentials_path = config_dir.path().join("cli-credentials.json");
+    let session = AuthSession {
+        credential_id: access.credential_id,
+        device_name: "Journey remote test".to_string(),
+        public_key_jwk,
+        private_key_pkcs8: Some(
+            URL_SAFE_NO_PAD.encode(
+                key.to_pkcs8_der()
+                    .expect("encode test private key")
+                    .as_bytes(),
+            ),
+        ),
+        access_token: access.access_token,
+        refresh_token: "unused-in-journey-test".to_string(),
+        expires_at: Utc::now().timestamp() + 300,
+        base_url: api_base.clone(),
+        resource: None,
+        space_uid: access.space_uid,
+    };
+    let config = EndpointConfig {
+        mode: EndpointMode::Api,
+        backend_url: server_url,
+        api_url: api_base,
+    };
+    std::fs::write(
+        &config_path,
+        serde_json::to_vec_pretty(&config).expect("serialize endpoint config"),
+    )
+    .expect("write endpoint config");
+    std::fs::write(
+        &credentials_path,
+        serde_json::to_vec_pretty(&session).expect("serialize CLI credential"),
+    )
+    .expect("write CLI credential");
+
+    // Bare Space IDs select the remote transport in every command below.
+    //
+    // The journey Space itself comes from credential issuance (fixture
+    // setup): remote `space create` is unreachable for token identities by
+    // product design, because Space creation requires a browser session with
+    // a recent Passkey plus the node-admin role. That transport boundary is
+    // tracked separately and is not represented as journey evidence here.
+    let space_id = access.space_uid.to_string();
+    let space_id: &str = &space_id;
+    let form_name = "JourneyRemoteForm";
+    let needle = "journey-remote-needle";
+    let entry_id = "journey-remote-entry";
+
+    // Space create is intentionally not driven remotely (see above): prove
+    // the provisioned Space is durable and reopenable through remote reads.
+    let space = stdout_json(
+        &run_cli(&config_path, &["space", "get", space_id]).await,
+        "space get",
+    );
+    assert!(contains_string(&space, space_id));
+
+    // Form establish via `form update`: the upsert path behind a weaker name.
+    let form_file = config_dir.path().join("journey-remote-form.json");
+    std::fs::write(
+        &form_file,
+        format!(
+            "{{\"name\":\"{form_name}\",\"version\":1,\"template\":\"# {form_name}\\n\\n## Status\\n\\n## Body\\n\",\"fields\":{{\"Status\":{{\"type\":\"string\",\"required\":true}},\"Body\":{{\"type\":\"markdown\"}}}}}}"
+        ),
+    )
+    .expect("write journey form");
+    let output = run_cli(
+        &config_path,
+        &["form", "update", space_id, form_file.to_str().unwrap()],
+    )
+    .await;
+    assert!(
+        output.status.success(),
+        "form establish failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let form = stdout_json(
+        &run_cli(&config_path, &["form", "get", space_id, form_name]).await,
+        "form get",
+    );
+    assert_eq!(
+        form.get("name").and_then(|name| name.as_str()),
+        Some(form_name)
+    );
+    assert_eq!(
+        form.pointer("/fields/Status/type").and_then(|t| t.as_str()),
+        Some("string")
+    );
+    assert_eq!(
+        form.pointer("/fields/Status/required")
+            .and_then(|r| r.as_bool()),
+        Some(true)
+    );
+
+    // Entry create appends exactly one revision.
+    let v1 = format!(
+        "---\nform: {form_name}\n---\n# Journey remote v1\n\n## Status\n{needle}\n\n## Body\njourney remote v1\n"
+    );
+    let created = stdout_json(
+        &run_cli(
+            &config_path,
+            &["entry", "create", "--content", &v1, space_id, entry_id],
+        )
+        .await,
+        "entry create",
+    );
+    assert!(contains_string(&created, entry_id));
+    let history = stdout_json(
+        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        "entry history after create",
+    );
+    let ids = revision_ids(&history);
+    assert_eq!(ids.len(), 1);
+    let rev1 = ids[0].clone();
+
+    // Entry edit appends a revision; a stale parent conflicts.
+    let v2 = format!(
+        "---\nform: {form_name}\n---\n# Journey remote v2\n\n## Status\n{needle}\n\n## Body\njourney remote v2\n"
+    );
+    // NOTE: `--markdown=<value>` keeps frontmatter (leading `---`) from
+    // parsing as a flag; the update flag lacks allow_hyphen_values.
+    let markdown_arg = format!("--markdown={v2}");
+    let output = run_cli(
+        &config_path,
+        &[
+            "entry",
+            "update",
+            space_id,
+            entry_id,
+            markdown_arg.as_str(),
+            "--parent-revision-id",
+            &rev1,
+        ],
+    )
+    .await;
+    assert!(
+        output.status.success(),
+        "entry update failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let history = stdout_json(
+        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        "entry history after edit",
+    );
+    let ids = revision_ids(&history);
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&rev1));
+    let rev2 = ids.into_iter().find(|id| id != &rev1).expect("rev2");
+    let stale = run_cli(
+        &config_path,
+        &[
+            "entry",
+            "update",
+            space_id,
+            entry_id,
+            markdown_arg.as_str(),
+            "--parent-revision-id",
+            &rev1,
+        ],
+    )
+    .await;
+    assert!(
+        !stale.status.success(),
+        "stale parent revision must conflict instead of overwriting"
+    );
+
+    // Search finds the updated durable Entry.
+    let results = stdout_json(
+        &run_cli(&config_path, &["search", "keyword", space_id, needle]).await,
+        "search keyword",
+    );
+    assert!(
+        contains_string(&results, entry_id),
+        "search must find the updated entry: {results}"
+    );
+
+    // Restore appends a new revision replaying rev1; history never shortens.
+    let output = run_cli(
+        &config_path,
+        &["entry", "restore", space_id, entry_id, &rev1],
+    )
+    .await;
+    assert!(
+        output.status.success(),
+        "entry restore failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let history = stdout_json(
+        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        "entry history after restore",
+    );
+    let ids = revision_ids(&history);
+    assert_eq!(ids.len(), 3);
+    assert!(ids.contains(&rev1));
+    assert!(ids.contains(&rev2));
+    let rev3 = ids
+        .into_iter()
+        .find(|id| id != &rev1 && id != &rev2)
+        .expect("rev3");
+    let revision = stdout_json(
+        &run_cli(
+            &config_path,
+            &["entry", "revision", space_id, entry_id, &rev3],
+        )
+        .await,
+        "entry revision after restore",
+    );
+    assert_eq!(
+        revision.get("revision_id").and_then(|id| id.as_str()),
+        Some(rev3.as_str())
+    );
+    assert!(
+        contains_substring(&revision, "journey remote v1"),
+        "restored revision must replay rev1 content: {revision}"
+    );
+
+    // Reopen: fresh processes read identical durable state.
+    let space = stdout_json(
+        &run_cli(&config_path, &["space", "get", space_id]).await,
+        "space get on reopen",
+    );
+    assert!(contains_string(&space, space_id));
+    let history = stdout_json(
+        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        "entry history on reopen",
+    );
+    assert_eq!(revision_ids(&history).len(), 3);
+    let results = stdout_json(
+        &run_cli(&config_path, &["search", "keyword", space_id, needle]).await,
+        "search keyword on reopen",
+    );
+    assert!(contains_string(&results, entry_id));
+}
+
+async fn state_issue_rest_access(
+    state: &AppState,
+    public_key_jwk: serde_json::Value,
+) -> ugoite_server::TestRestAccess {
+    state
+        .issue_test_rest_access(public_key_jwk)
+        .await
+        .expect("issue test REST credential")
+}
