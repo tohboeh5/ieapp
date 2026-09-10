@@ -7,10 +7,6 @@ on:
         description: GitHub Actions run ID that uploaded the verified candidate bundle
         required: true
         type: string
-      candidate_id:
-        description: SHA-256 ID printed by the candidate workflow
-        required: true
-        type: string
 
 permissions: {}
 
@@ -27,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -59,34 +55,43 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import re
-
-          manifest = json.loads(pathlib.Path("target/artifacts/candidate-manifest.json").read_text())
-          if manifest.get("verification", {}).get("release_grade") != "passed":
-              raise SystemExit("candidate is not release-grade verified")
-          if not re.fullmatch(r"[0-9a-f]{40}", manifest.get("source_sha", "")):
-              raise SystemExit("candidate source SHA is not immutable")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"version={manifest['version']}\n")
-              output.write(f"source_sha={manifest['source_sha']}\n")
-          PY
+          deno eval --allow-read --allow-env --allow-write '
+          const manifest = JSON.parse(await Deno.readTextFile("target/artifacts/candidate-manifest.json"));
+          const runId = Deno.env.get("CANDIDATE_RUN_ID");
+          if (manifest.ci_run_id !== runId) {
+            throw new Error("candidate manifest ci_run_id does not match the selected run");
+          }
+          if (!/^[0-9a-f]{40}$/.test(manifest.source_sha ?? "")) {
+            throw new Error("candidate source SHA is not immutable");
+          }
+          await Deno.writeTextFile(
+            Deno.env.get("GITHUB_OUTPUT")!,
+            `version=${manifest.version}\nsource_sha=${manifest.source_sha}\n`,
+            { append: true },
+          );
+          '
+        env:
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
 
       - name: Verify exact candidate before publication
         env:
           GH_TOKEN: ${{ github.token }}
-        run: mise run release:verify-candidate -- --candidate target/artifacts/candidate-manifest.json --candidate-id "${{ inputs.candidate_id }}"
+        run: mise run release:verify-candidate -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}"
+
+      - name: Verify exact candidate assets before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mise run release:verify-candidate-assets -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}"
 
       - name: Promote exact candidate bytes
         env:
           GH_TOKEN: ${{ github.token }}
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: mise run release:promote -- --candidate target/artifacts/candidate-manifest.json --candidate-id "${{ inputs.candidate_id }}"
+        run: |
+          mise run release:promote -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}"
+          echo "state=versioned-published" >> "$GITHUB_STEP_SUMMARY"
 
-  verify-published-quickstarts:
+  verify-published-distribution:
     needs: promote
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -96,7 +101,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -110,37 +115,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Install Playwright browsers
-        run: deno task e2e:install:browsers
-
-      - name: Verify published container quick start
+      - name: Verify published distribution identity and availability
         env:
           UGOITE_IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
           UGOITE_RELEASE_TOKEN: ${{ github.token }}
           UGOITE_RELEASE_SHA: ${{ needs.promote.outputs.source_sha }}
           UGOITE_RELEASE_TAG: v${{ needs.promote.outputs.version }}
           UGOITE_VERSION: ${{ needs.promote.outputs.version }}
-        run: bash scripts/verify-release-container-quickstart.sh
-
-      - name: Verify published CLI quick start
-        env:
-          UGOITE_RELEASE_TOKEN: ${{ github.token }}
-          UGOITE_RELEASE_SHA: ${{ needs.promote.outputs.source_sha }}
-          UGOITE_RELEASE_TAG: v${{ needs.promote.outputs.version }}
-          UGOITE_VERSION: ${{ needs.promote.outputs.version }}
-        run: bash scripts/verify-release-cli-quickstart.sh
+        run: |
+          bash scripts/verify-release-distribution.sh
+          echo "state=distribution-verified" >> "$GITHUB_STEP_SUMMARY"
 
   publish-channel-release-notes:
     needs:
       - promote
-      - verify-published-quickstarts
+      - verify-published-distribution
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -161,11 +157,12 @@ jobs:
           gh release view "${RELEASE_TAG}" --json body --jq .body >"${body_file}"
           deno run -A tools/release-notes.ts compose --channel stable --version "${RELEASE_VERSION}" --body-file "${body_file}" --output "${notes_file}"
           gh release edit "${RELEASE_TAG}" --notes-file "${notes_file}"
+          echo "state=announced" >> "$GITHUB_STEP_SUMMARY"
 
   promote-aliases:
     needs:
       - promote
-      - verify-published-quickstarts
+      - verify-published-distribution
       - publish-channel-release-notes
     runs-on: ubuntu-24.04
     permissions:
@@ -175,7 +172,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -207,4 +204,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: mise run release:promote:aliases -- --candidate target/artifacts/candidate-manifest.json --candidate-id "${{ inputs.candidate_id }}"
+        run: |
+          mise run release:promote:aliases -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}"
+          echo "state=announced" >> "$GITHUB_STEP_SUMMARY"

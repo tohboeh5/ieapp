@@ -32,7 +32,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-002
   title: Container Build Validation
-  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates the build, and the hosted Release Publish workflow smoke-tests the published versioned image through the documented Compose quick start.
+  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without repeating source CI, the publish preflight smoke-tests the exact candidate image digest, and the post-publish gate verifies distribution identity and health.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -41,7 +41,7 @@ requirements:
   verification: traced
   tests:
   - file: .github/workflows/release-publish.yml
-  - file: scripts/verify-release-container-quickstart.sh
+  - file: scripts/verify-release-distribution.sh
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
@@ -289,7 +289,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-017
   title: Release Container Publishing and Quick Start
-  description: Promotion publishes the verified runtime image digest without rebuilding and verifies the documented Compose quick start from the published versioned image and Compose assets.
+  description: Promotion publishes the verified runtime image digest without rebuilding. The pre-publish gate starts the exact candidate digest, while the post-publish gate verifies the versioned distribution identity and health without browser E2E.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -298,7 +298,7 @@ requirements:
   verification: traced
   tests:
   - file: .github/workflows/release-publish.yml
-  - file: scripts/verify-release-container-quickstart.sh
+  - file: scripts/verify-release-distribution.sh
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
@@ -306,7 +306,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-018
   title: CLI Release Binaries and Install Path
-  description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives before the post-publication installer quick-start gate.
+  description: Candidate generation verifies checksum-verified CLI archives for supported platforms, and buildless promotion publishes those exact archives before the post-publication installer version check.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -316,7 +316,7 @@ requirements:
   tests:
   - file: .github/workflows/release-publish.yml
   - file: scripts/install-ugoite-cli.sh
-  - file: scripts/verify-release-cli-quickstart.sh
+  - file: scripts/verify-release-distribution.sh
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
@@ -429,8 +429,8 @@ requirements:
   linked_policies: *id001
   linked_specifications: *id002
   id: REQ-OPS-025
-  title: Published Release Quick-Start Verification
-  description: Release automation downloads the published Compose and CLI assets and verifies the browser and CLI quick starts against the exact released version.
+  title: Published Release Distribution Verification
+  description: Release automation downloads the published Compose and CLI assets and verifies their identity, the versioned container health, and the CLI installer version against the exact released version.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -439,8 +439,7 @@ requirements:
   verification: traced
   tests:
   - file: .github/workflows/release-publish.yml
-  - file: scripts/verify-release-container-quickstart.sh
-  - file: scripts/verify-release-cli-quickstart.sh
+  - file: scripts/verify-release-distribution.sh
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
@@ -448,7 +447,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-026
   title: Repository-Managed Stable Changelog Source
-  description: The stable changelog source must not imply unpublished artifacts exist and must be rendered into the GitHub Release body after artifact and quick-start verification. Historical beta and alpha sources remain separate but are not normal public release channels. Reruns replace one marked repository-owned section without duplicating generated notes.
+  description: The stable changelog source must not imply unpublished artifacts exist and must be rendered into the GitHub Release body after artifact and distribution verification. Historical beta and alpha sources remain separate but are not normal public release channels. Reruns replace one marked repository-owned section without duplicating generated notes.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md

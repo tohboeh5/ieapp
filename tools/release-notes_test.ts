@@ -155,13 +155,13 @@ Deno.test("REQ-OPS-026: marked channel notes replace once and preserve generated
   );
 });
 
-Deno.test("REQ-OPS-026: workflow updates notes after artifact quick-start verification", async () => {
+Deno.test("REQ-OPS-026: workflow updates notes after distribution verification", async () => {
   const workflow = await Deno.readTextFile(
     ".github/workflows/release-publish.yml",
   );
-  const quickstartIndex = workflow.indexOf("verify-published-quickstarts:");
+  const distributionIndex = workflow.indexOf("verify-published-distribution:");
   const notesJobIndex = workflow.indexOf("publish-channel-release-notes:");
-  assertEquals(notesJobIndex > quickstartIndex, true);
+  assertEquals(notesJobIndex > distributionIndex, true);
   assertEquals(workflow.includes("tools/release-notes.ts compose"), true);
   assertEquals(
     workflow.includes('gh release edit "${RELEASE_TAG}" --notes-file'),
