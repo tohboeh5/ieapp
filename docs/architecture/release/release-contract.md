@@ -39,6 +39,15 @@ alpha/beta tags are not used to calculate the next stable version. The first
 stable release promotes the already prepared `0.1.0` without another prepare
 operation.
 
+Release platform support is tiered. The current Tier 1 set is the four CLI
+targets (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,
+`x86_64-apple-darwin`, and `aarch64-apple-darwin`) plus the Linux `amd64` and
+`arm64` container image; npm and Helm are platform-neutral. Tier 2 is reserved
+for targets validated best-effort in nightly or manual runs and is currently
+empty. Targets in neither tier are unsupported. See
+[Release platform support](platform-support.md) for the promotion criteria and
+the current assignment.
+
 ## Candidates
 
 `mise run release:candidate` builds and packages from one exact source SHA and
