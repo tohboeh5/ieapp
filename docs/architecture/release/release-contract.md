@@ -93,9 +93,9 @@ published versioned identities intact and rerunning the same candidate resumes
 that promotion.
 
 The distribution check verifies the released assets, npm and Helm coordinates,
-container health, and CLI installer before the mutable aliases are changed.
-The published release manifest lists only GitHub Release assets in `files`; npm
-and Helm package digests are recorded in typed `npm_package` and `helm_chart`
+container health, and CLI installer before the mutable aliases are changed. The
+published release manifest lists only GitHub Release assets in `files`; npm and
+Helm package digests are recorded in typed `npm_package` and `helm_chart`
 projections so registry artifacts are not mistaken for Release assets during
 distribution verification.
 
