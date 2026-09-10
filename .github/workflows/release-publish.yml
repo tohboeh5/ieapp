@@ -224,6 +224,7 @@ jobs:
           gh release view "${RELEASE_TAG}" --json body --jq .body >"${body_file}"
           deno run -A tools/release-notes.ts compose --channel stable --version "${RELEASE_VERSION}" --body-file "${body_file}" --output "${notes_file}"
           gh release edit "${RELEASE_TAG}" --notes-file "${notes_file}"
+          echo "state=announced" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record release state
         run: echo 'state=announced' >>"${GITHUB_STEP_SUMMARY}"
