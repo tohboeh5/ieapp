@@ -176,6 +176,8 @@ inventory:
             - tools/pr_body_gate_test.ts
             - tools/release_contract_test.ts
             - tools/release.ts
+            - tools/release_verify.ts
+            - tools/release_verify_test.ts
             - tools/workspace_test.ts
         openapi:
           roots:
@@ -300,8 +302,6 @@ inventory:
             - tools/pr_body_gate_test.ts
             - tools/coverage_gates_test.ts
             - tools/release.ts
-            - tools/release_verify.ts
-            - tools/release_verify_test.ts
             - docsite/src/spec-integrity.test.ts
             - crates/ugoite-core/src/lib.rs
             - crates/ugoite-server/src/lib.rs

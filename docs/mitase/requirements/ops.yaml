@@ -1056,9 +1056,9 @@ requirements:
           - id: verifier-core-test
             adapter: typescript
             path: tools/release_verify_test.ts
-            selector: { kind: file }
+            selector: { kind: test, name: release verifier core derives candidate identity from exact manifest bytes }
             claims:
               - kind: verifies
                 criterion: REQ-OPS-044#criterion.repository-native-release-promotion
-                covers: [FEAT-OPS-001#binding.repository-native-release/target.release-implementation]
-                runner: { runner: deno-test-file, arguments: { file: tools/release_verify_test.ts } }
+                covers: [FEAT-OPS-001#binding.repository-native-release/target.release-implementation, FEAT-OPS-001#binding.repository-native-release/target.release-verifier-core]
+                runner: { runner: deno-test-file, arguments: { file: tools/release_verify_test.ts, test: release verifier core derives candidate identity from exact manifest bytes } }
