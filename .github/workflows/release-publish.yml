@@ -83,12 +83,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: mise run release:verify-candidate-assets -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}"
 
+      - name: Record verification receipt for exact candidate
+        run: >-
+          mise run release:write-verification-receipt --
+          --candidate target/artifacts/candidate-manifest.json
+          --candidate-run-id "${{ inputs.candidate_run_id }}"
+          --verifier-workflow-sha "${{ github.workflow_sha }}"
+          --verification-run-id "${{ github.run_id }}"
+          --output "target/artifacts/verification-receipt-${{ github.run_id }}.json"
+          --policy release-smoke-v1
+
       - name: Promote exact candidate bytes
         env:
           GH_TOKEN: ${{ github.token }}
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
-          mise run release:promote -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}"
+          mise run release:promote -- --candidate target/artifacts/candidate-manifest.json --candidate-run-id "${{ inputs.candidate_run_id }}" --verification-receipt "target/artifacts/verification-receipt-${{ github.run_id }}.json"
           echo "state=versioned-published" >> "$GITHUB_STEP_SUMMARY"
 
   verify-published-distribution:
@@ -118,6 +128,7 @@ jobs:
       - name: Verify published distribution identity and availability
         env:
           UGOITE_IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+          UGOITE_RELEASE_REPOSITORY: ${{ github.repository }}
           UGOITE_RELEASE_TOKEN: ${{ github.token }}
           UGOITE_RELEASE_SHA: ${{ needs.promote.outputs.source_sha }}
           UGOITE_RELEASE_TAG: v${{ needs.promote.outputs.version }}

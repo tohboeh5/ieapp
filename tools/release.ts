@@ -1,3 +1,14 @@
+import {
+  candidateIdFromManifestBytes,
+  type CandidateManifest,
+  createVerificationReceipt,
+  parseCandidateManifest,
+  parseVerificationReceipt,
+  RELEASE_SMOKE_POLICY,
+  validateVerificationReceipt,
+  type VerificationReceipt,
+} from "./release_verify.ts";
+
 const decoder = new TextDecoder();
 const repoRoot = decodeURIComponent(new URL("../", import.meta.url).pathname)
   .replace(/\/$/, "");
@@ -13,29 +24,6 @@ type VersionState = {
   versionFile: string;
   npmPackageName: string;
   npmRegistry: string;
-};
-
-type CandidateFile = {
-  path: string;
-  sha256: string;
-  size: number;
-};
-
-type CandidateArtifact = {
-  kind: "cli" | "npm" | "helm" | "image" | "release";
-  files: CandidateFile[];
-  config?: Record<string, string>;
-};
-
-type CandidateManifest = {
-  schema_version: number;
-  contract_version: number;
-  version: string;
-  source_sha: string;
-  ci_run_id: string;
-  source_ci_required_check_run_id: string;
-  verification: { release_grade: string };
-  artifacts: CandidateArtifact[];
 };
 
 type VerifiedCandidate = {
@@ -69,13 +57,22 @@ async function main(): Promise<void> {
         await verifyCandidate(candidateManifestPath(args), args, true),
       );
       break;
+    case "write-verification-receipt":
+      await writeVerificationReceipt(args);
+      break;
     case "candidate-id":
       console.log(`sha256:${await sha256File(candidateManifestPath(args))}`);
       break;
     case "promote":
-      await promote(
-        await verifyCandidate(candidateManifestPath(args), args, true),
-      );
+      {
+        const candidate = await verifyCandidate(
+          candidateManifestPath(args),
+          args,
+          true,
+        );
+        await readVerificationReceipt(candidate, args);
+        await promote(candidate, verificationReceiptPath(candidate, args));
+      }
       break;
     case "promote-aliases":
       await promoteAliases(
@@ -102,7 +99,7 @@ async function main(): Promise<void> {
       break;
     default:
       throw new Error(
-        "usage: deno run -A tools/release.ts <version-sync|version-check|prepare compatible|prepare breaking|candidate|verify-candidate|verify-candidate-assets|candidate-id|promote|promote-aliases|package-cli|verify-cli|package-npm|package-helm|verify-npm|verify-helm>",
+        "usage: deno run -A tools/release.ts <version-sync|version-check|prepare compatible|prepare breaking|candidate|verify-candidate|verify-candidate-assets|write-verification-receipt|candidate-id|promote|promote-aliases|package-cli|verify-cli|package-npm|package-helm|verify-npm|verify-helm>",
       );
   }
 }
@@ -302,34 +299,8 @@ async function verifyCandidate(
 ): Promise<VerifiedCandidate> {
   await ensureFile(manifestPath, "candidate manifest");
   const bytes = await Deno.readFile(manifestPath);
-  const manifest = JSON.parse(
-    new TextDecoder().decode(bytes),
-  ) as CandidateManifest;
-  if (manifest.schema_version !== 3) {
-    throw new Error("candidate manifest schema_version must be 3");
-  }
-  if (manifest.contract_version !== 3) {
-    throw new Error("candidate manifest contract_version must be 3");
-  }
-  if (!Array.isArray(manifest.artifacts)) {
-    throw new Error("candidate manifest artifacts must be an array");
-  }
-  parseStableVersion(manifest.version);
-  if (!/^[0-9a-f]{40}$/.test(manifest.source_sha)) {
-    throw new Error(
-      "candidate source_sha must be a 40-character Git commit SHA",
-    );
-  }
-  if (!manifest.ci_run_id) throw new Error("candidate ci_run_id is required");
-  if (!manifest.source_ci_required_check_run_id) {
-    throw new Error(
-      "candidate source_ci_required_check_run_id is required",
-    );
-  }
-  if (manifest.verification?.release_grade !== "passed") {
-    throw new Error("candidate verification.release_grade must be passed");
-  }
-  const candidateId = `sha256:${await sha256File(manifestPath)}`;
+  const manifest = parseCandidateManifest(bytes);
+  const candidateId = await candidateIdFromManifestBytes(bytes);
   const expectedRunId = flagValue(args, "--candidate-run-id") ??
     Deno.env.get("UGOITE_CANDIDATE_RUN_ID");
   if (requireCandidateRunId && !expectedRunId) {
@@ -409,6 +380,62 @@ async function verifyCandidate(
     `verified candidate ${candidateId} (${manifest.version}, ${manifest.source_sha})`,
   );
   return { manifestPath, manifest, candidateId };
+}
+
+async function writeVerificationReceipt(args: string[]): Promise<void> {
+  const manifestPath = candidateManifestPath(args);
+  const candidateRunId = flagValue(args, "--candidate-run-id") ??
+    Deno.env.get("UGOITE_CANDIDATE_RUN_ID");
+  const verifierWorkflowSha = flagValue(args, "--verifier-workflow-sha") ??
+    Deno.env.get("UGOITE_VERIFIER_WORKFLOW_SHA");
+  const verificationRunId = flagValue(args, "--verification-run-id") ??
+    Deno.env.get("GITHUB_RUN_ID");
+  const policy = flagValue(args, "--policy") ?? RELEASE_SMOKE_POLICY;
+  if (!candidateRunId) throw new Error("candidate run ID is required");
+  if (!verifierWorkflowSha) {
+    throw new Error("verifier workflow SHA is required");
+  }
+  if (!verificationRunId) throw new Error("verification run ID is required");
+  const candidate = await verifyCandidate(manifestPath, [
+    "--candidate-run-id",
+    candidateRunId,
+  ], true);
+  const receipt = createVerificationReceipt({
+    candidateId: candidate.candidateId,
+    candidateRunId,
+    verifierWorkflowSha,
+    verificationRunId,
+    policy,
+  });
+  const outputPath = flagValue(args, "--output") ??
+    pathJoin(dirname(manifestPath), "verification-receipt.json");
+  await Deno.writeTextFile(outputPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  console.log(`verification_receipt=${outputPath}`);
+}
+
+async function readVerificationReceipt(
+  candidate: VerifiedCandidate,
+  args: string[] = [],
+): Promise<VerificationReceipt> {
+  const receiptPath = verificationReceiptPath(candidate, args);
+  await ensureFile(receiptPath, "verification receipt");
+  let value: unknown;
+  try {
+    value = JSON.parse(await Deno.readTextFile(receiptPath));
+  } catch (error) {
+    throw new Error(
+      `verification receipt is not valid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const receipt = parseVerificationReceipt(value);
+  validateVerificationReceipt(receipt, {
+    candidateId: candidate.candidateId,
+    candidateRunId: candidate.manifest.ci_run_id,
+    policy: RELEASE_SMOKE_POLICY,
+  });
+  return receipt;
 }
 
 async function verifyCandidateAssets(
@@ -638,7 +665,10 @@ async function isSameFile(
   }
 }
 
-async function promote(candidate: VerifiedCandidate): Promise<void> {
+async function promote(
+  candidate: VerifiedCandidate,
+  receiptPath: string,
+): Promise<void> {
   if (Deno.env.get("UGOITE_PROMOTION_DRY_RUN") === "true") {
     console.log(
       `dry-run promotion ${candidate.candidateId} for v${candidate.manifest.version}`,
@@ -648,7 +678,7 @@ async function promote(candidate: VerifiedCandidate): Promise<void> {
   const version = candidate.manifest.version;
   const stableTag = `v${version}`;
   const draftTag = candidateDraftTag(candidate);
-  const releaseAssets = await prepareReleaseAssets(candidate);
+  const releaseAssets = await prepareReleaseAssets(candidate, receiptPath);
   const releaseFiles = [
     ...candidateCliAssetPaths(candidate),
     candidate.manifestPath,
@@ -745,21 +775,29 @@ async function ensureStableRelease(
   sourceSha: string,
   releaseFiles: string[],
 ): Promise<void> {
+  let filesToVerify = releaseFiles;
+  let alreadyImmutable = false;
   const existing = await tryRun("gh", [
     "release",
     "view",
     tag,
     "--json",
-    "tagName,targetCommitish,isDraft",
+    "tagName,targetCommitish,isDraft,isImmutable",
   ]);
   if (existing.success) {
     const release = JSON.parse(existing.stdout) as {
       tagName?: string;
       targetCommitish?: string;
       isDraft?: boolean;
+      isImmutable?: boolean;
     };
     if (release.tagName !== tag) {
       throw new Error(`GitHub Release tag mismatch for ${tag}`);
+    }
+    if (release.isDraft === false && release.isImmutable !== true) {
+      throw new Error(
+        `GitHub Release ${tag} is published but not immutable`,
+      );
     }
     if (release.targetCommitish && release.targetCommitish !== sourceSha) {
       const resolved = await tryRun("git", [
@@ -772,7 +810,14 @@ async function ensureStableRelease(
         );
       }
     }
-    await publishReleaseFiles(tag, releaseFiles);
+    if (release.isImmutable) {
+      alreadyImmutable = true;
+      filesToVerify = releaseFiles.filter((filePath) =>
+        !basename(filePath).startsWith("verification-receipt-")
+      );
+    } else {
+      await publishReleaseFiles(tag, releaseFiles);
+    }
   } else {
     if (!isMissing(existing.stderr)) throw new Error(existing.stderr);
     await run("gh", [
@@ -789,10 +834,25 @@ async function ensureStableRelease(
       ...releaseFiles,
     ]);
   }
-  for (const filePath of releaseFiles) {
+  for (const filePath of filesToVerify) {
     await verifyPublishedReleaseFile(tag, filePath);
   }
+  if (alreadyImmutable) return;
   await run("gh", ["release", "edit", tag, "--draft=false"]);
+  const published = JSON.parse(
+    (await run("gh", [
+      "release",
+      "view",
+      tag,
+      "--json",
+      "isDraft,isImmutable",
+    ])).stdout,
+  ) as { isDraft?: boolean; isImmutable?: boolean };
+  if (published.isDraft !== false || published.isImmutable !== true) {
+    throw new Error(
+      `GitHub Release ${tag} was not published as an immutable release`,
+    );
+  }
 }
 
 function candidateCliAssetPaths(candidate: VerifiedCandidate): string[] {
@@ -807,6 +867,7 @@ function candidateCliAssetPaths(candidate: VerifiedCandidate): string[] {
 
 async function prepareReleaseAssets(
   candidate: VerifiedCandidate,
+  receiptPath: string,
 ): Promise<string[]> {
   const directory = dirname(candidate.manifestPath);
   const idPath = pathJoin(directory, "candidate-id.txt");
@@ -821,6 +882,15 @@ async function prepareReleaseAssets(
     .filter((artifact) => artifact.kind === "release")
     .flatMap((artifact) => artifact.files)
     .map((file) => safeCandidatePath(directory, file.path));
+  await ensureFile(receiptPath, "verification receipt");
+  const receipt = parseVerificationReceipt(
+    JSON.parse(await Deno.readTextFile(receiptPath)),
+  );
+  validateVerificationReceipt(receipt, {
+    candidateId: candidate.candidateId,
+    candidateRunId: candidate.manifest.ci_run_id,
+    policy: RELEASE_SMOKE_POLICY,
+  });
   const publicManifest = {
     schema_version: 2,
     release_tag: `v${candidate.manifest.version}`,
@@ -848,13 +918,26 @@ async function prepareReleaseAssets(
     `${JSON.stringify(publicManifest, null, 2)}\n`,
   );
   await Deno.writeTextFile(idPath, `${candidate.candidateId}\n`);
-  return [publicManifestPath, idPath, ...releaseAssets];
+  return [
+    publicManifestPath,
+    idPath,
+    receiptPath,
+    ...releaseAssets,
+  ];
 }
 
 function candidateDraftTag(candidate: VerifiedCandidate): string {
   const shortSource = candidate.manifest.source_sha.slice(0, 12);
   const shortCandidate = candidate.candidateId.slice(-12);
   return `candidate-${shortSource}-${shortCandidate}`;
+}
+
+function verificationReceiptPath(
+  candidate: VerifiedCandidate,
+  args: string[],
+): string {
+  return flagValue(args, "--verification-receipt") ??
+    pathJoin(dirname(candidate.manifestPath), "verification-receipt.json");
 }
 
 async function publishReleaseFiles(

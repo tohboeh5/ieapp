@@ -291,16 +291,16 @@ inventory:
             - packages/ugoite/README.md
             - scripts/dev-seed.sh
             - scripts/install-ugoite-cli.sh
-            - scripts/verify-release-cli-quickstart.sh
             - docs/architecture/release/release-contract.md
             - scripts/ci/mitase-check.sh
-            - scripts/verify-release-container-quickstart.sh
+            - scripts/verify-release-distribution.sh
             - tools/knowledge_compatibility.ts
             - tools/knowledge_compatibility_test.ts
             - tools/pr_body_gate.ts
             - tools/pr_body_gate_test.ts
             - tools/coverage_gates_test.ts
             - tools/release.ts
+            - tools/release_verify.ts
             - docsite/src/spec-integrity.test.ts
             - crates/ugoite-core/src/lib.rs
             - crates/ugoite-server/src/lib.rs

@@ -298,7 +298,6 @@ jobs:
       - name: Write and verify candidate manifest
         env:
           UGOITE_RELEASE_CANDIDATE_PREBUILT: "true"
-          UGOITE_RELEASE_GRADE: passed
           UGOITE_SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
           UGOITE_CI_RUN_ID: ${{ github.run_id }}
           UGOITE_SOURCE_CI_REQUIRED_CHECK_RUN_ID: ${{ needs.preflight.outputs.source_ci_required_check_run_id }}

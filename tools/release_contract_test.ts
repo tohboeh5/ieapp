@@ -66,6 +66,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       "release:candidate",
       "release:verify-candidate",
       "release:verify-candidate-assets",
+      "release:write-verification-receipt",
       "release:promote",
     ]
   ) assertEquals(mise.includes(`[tasks."${task}"]`), true, task);
@@ -107,8 +108,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     releaseTool.includes('await run("mise", ["run", "ci:release"])'),
     false,
   );
-  assertEquals(releaseTool.includes("schema_version !== 3"), true);
-  assertEquals(releaseTool.includes("contract_version !== 3"), true);
+  assertEquals(releaseTool.includes("candidateIdFromManifestBytes"), true);
   assertEquals(
     publish.includes("run-id: ${{ inputs.candidate_run_id }}"),
     true,
@@ -133,6 +133,17 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     true,
   );
   assertEquals(
+    publish.includes("Record verification receipt for exact candidate"),
+    true,
+  );
+  assertEquals(publish.includes("--verifier-workflow-sha"), true);
+  assertEquals(publish.includes("--verification-run-id"), true);
+  assertEquals(
+    publish.includes("verification-receipt-${{ github.run_id }}.json"),
+    true,
+  );
+  assertEquals(releaseTool.includes("isImmutable"), true);
+  assertEquals(
     publish.includes("verify-release-container-quickstart.sh"),
     false,
   );
@@ -144,7 +155,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   assertEquals(publish.includes("ref: main"), false);
   const promoteStart = releaseTool.indexOf(
-    "async function promote(candidate: VerifiedCandidate)",
+    "async function promote(\n",
   );
   const aliasesStart = releaseTool.indexOf(
     "async function promoteAliases(candidate: VerifiedCandidate)",
@@ -169,6 +180,10 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     true,
   );
   assertEquals(
+    releaseTool.slice(stableReleaseStart, npmStart).includes("isImmutable"),
+    true,
+  );
+  assertEquals(
     releaseTool.slice(npmStart).includes('"--tag", "latest"'),
     false,
   );
@@ -183,6 +198,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
       .test(publish),
     false,
   );
+  assertEquals(releaseTool.includes("isImmutable"), true);
 });
 
 Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering fails", async () => {
@@ -217,13 +233,12 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     ),
   ];
   const manifest = {
-    schema_version: 3,
-    contract_version: 3,
+    schema_version: 4,
+    contract_version: 4,
     version: "0.1.0",
     source_sha: source,
     ci_run_id: "test-run",
     source_ci_required_check_run_id: "test-ci-check",
-    verification: { release_grade: "passed" },
     artifacts: [
       {
         kind: "cli",
@@ -346,7 +361,6 @@ Deno.test("REQ-OPS-044: candidate writer records every promotion surface", async
       UGOITE_SOURCE_SHA: source,
       UGOITE_CI_RUN_ID: "test-run",
       UGOITE_SOURCE_CI_REQUIRED_CHECK_RUN_ID: "test-ci-check",
-      UGOITE_RELEASE_GRADE: "passed",
       UGOITE_CONTAINER_TAG: "sha-test",
       UGOITE_CONTAINER_DIGEST: `sha256:${"a".repeat(64)}`,
     },
@@ -357,7 +371,8 @@ Deno.test("REQ-OPS-044: candidate writer records every promotion surface", async
   const manifest = JSON.parse(
     await Deno.readTextFile(`${artifactRoot}/candidate-manifest.json`),
   ) as { artifacts: Array<{ kind: string }>; schema_version: number };
-  assertEquals(manifest.schema_version, 3);
+  assertEquals(manifest.schema_version, 4);
+  assertEquals("verification" in manifest, false);
   assertEquals(
     new Set(manifest.artifacts.map((artifact) => artifact.kind)),
     new Set(["cli", "npm", "helm", "image", "release"]),

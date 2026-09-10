@@ -91,16 +91,20 @@ reachable from `main` and has a successful `ci-required` check, then builds and
 packages the candidate artifact set without rerunning the merge gate or full E2E
 suite. It stores the result plus a schema-versioned `candidate-manifest.json`.
 The manifest records version, source SHA, candidate run identity, source
-`ci-required` check-run identity, verification state, artifact digests, and
-platform information. Its candidate ID is the SHA-256 of the exact manifest
-bytes; the manifest does not contain that ID.
+`ci-required` check-run identity, artifact digests, and platform information.
+Its candidate ID is the SHA-256 of the exact manifest bytes; the manifest does
+not contain that ID or verification state. Publish preflight records verifier
+identity and policy separately in a run-scoped
+`verification-receipt-<verification_run_id>.json` sidecar.
 
 `Release Publish` accepts only a candidate run ID, downloads the candidate
 artifact, derives the candidate ID from the manifest bytes, and invokes
 `release:verify-candidate` before promotion. The promotion job contains no
 compile, build, pack, package, or repackage step. It publishes the exact CLI
 archives, npm tarball, Helm archive, release Compose assets, and container
-digest from the manifest. Missing identities are published, matching
+digest from the manifest, together with a separate verification receipt.
+The receipt records the immutable verifier workflow SHA and verification run
+ID without changing candidate identity. Missing identities are published, matching
 identities are verified and skipped, and mismatches abort. Immutable versioned
 identities are verified before the GitHub Release is finalized; a pre-publish
 asset smoke uses the exact candidate archive and `repository@digest`, while a
@@ -185,6 +189,7 @@ target/artifacts/
   manifest.json
   SHA256SUMS
   candidate-manifest.json  # candidate bundle only
+  verification-receipt-<verification_run_id>.json  # publish evidence
   docker-compose.release.yaml(.sha256)  # candidate/release assets
   docsite/
   cli/

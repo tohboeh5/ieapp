@@ -32,7 +32,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-002
   title: Container Build Validation
-  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without repeating source CI, the publish preflight smoke-tests the exact candidate image digest, and the post-publish gate verifies distribution identity and health.
+  description: The single runtime image must be built and smoke-tested by an automated release gate. Local `ci:release` validates release artifacts without repeating source CI, the publish preflight smoke-tests the exact candidate image digest and records a separate verification receipt, and the post-publish gate verifies distribution identity and health.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md
@@ -430,7 +430,7 @@ requirements:
   linked_specifications: *id002
   id: REQ-OPS-025
   title: Published Release Distribution Verification
-  description: Release automation downloads the published Compose and CLI assets and verifies their identity, the versioned container health, and the CLI installer version against the exact released version.
+  description: Release automation downloads the published Compose and CLI assets and verifies their identity, the versioned container health, the CLI installer version, and the candidate verification receipt against the exact released version.
   related_spec:
   - ../architecture/testing/ci-cd.md
   - ../../guide/operate/server/operations.md

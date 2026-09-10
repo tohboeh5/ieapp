@@ -2,10 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSION_INPUT="${UGOITE_VERSION:-}"
 RELEASE_TAG_INPUT="${UGOITE_RELEASE_TAG:-v${VERSION_INPUT}}"
 RELEASE_SHA_INPUT="${UGOITE_RELEASE_SHA:-}"
 IMAGE_REPOSITORY="${UGOITE_IMAGE_REPOSITORY:-ghcr.io/ugoite/ugoite}"
+RELEASE_REPOSITORY_INPUT="${UGOITE_RELEASE_REPOSITORY:-ugoite/ugoite}"
 RELEASE_TOKEN_INPUT="${UGOITE_RELEASE_TOKEN:-}"
 ASSET_BASE_URL_INPUT="${UGOITE_RELEASE_ASSET_BASE_URL:-}"
 INSTALL_DIR_INPUT="${UGOITE_INSTALL_DIR:-}"
@@ -80,9 +82,12 @@ fi
 require_command curl
 require_command deno
 require_command docker
+require_command gh
 require_command tar
 
-ASSET_BASE_URL="${ASSET_BASE_URL_INPUT:-https://github.com/ugoite/ugoite/releases/download/${RELEASE_TAG_INPUT}}"
+cd "$REPO_ROOT"
+
+ASSET_BASE_URL="${ASSET_BASE_URL_INPUT:-https://github.com/${RELEASE_REPOSITORY_INPUT}/releases/download/${RELEASE_TAG_INPUT}}"
 WORK_ROOT="$(mktemp -d)"
 INSTALL_DIR="${INSTALL_DIR_INPUT:-$WORK_ROOT/bin}"
 CLI_TARGET="$(detect_target)"
@@ -103,8 +108,21 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$WORK_ROOT/assets"
+if [ -n "$RELEASE_TOKEN_INPUT" ]; then
+  receipt_asset_name="$(GH_TOKEN="$RELEASE_TOKEN_INPUT" gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json assets --jq '.assets[].name' | awk '/^verification-receipt-[^/]+\.json$/ { print; exit }')"
+else
+  receipt_asset_name="$(gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json assets --jq '.assets[].name' | awk '/^verification-receipt-[^/]+\.json$/ { print; exit }')"
+fi
+[ -n "$receipt_asset_name" ] || fail "published release has no verification receipt asset"
+if [ -n "$RELEASE_TOKEN_INPUT" ]; then
+  immutable="$(GH_TOKEN="$RELEASE_TOKEN_INPUT" gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json isImmutable --jq '.isImmutable')"
+else
+  immutable="$(gh release view "$RELEASE_TAG_INPUT" --repo "$RELEASE_REPOSITORY_INPUT" --json isImmutable --jq '.isImmutable')"
+fi
+[ "$immutable" = "true" ] || fail "published release is not immutable"
 download_asset candidate-manifest.json "$WORK_ROOT/assets/candidate-manifest.json"
 download_asset release-manifest.json "$WORK_ROOT/assets/release-manifest.json"
+download_asset "$receipt_asset_name" "$WORK_ROOT/assets/$receipt_asset_name"
 download_asset docker-compose.release.yaml "$WORK_ROOT/assets/docker-compose.release.yaml"
 download_asset docker-compose.release.yaml.sha256 "$WORK_ROOT/assets/docker-compose.release.yaml.sha256"
 download_asset "$CLI_ARCHIVE" "$WORK_ROOT/assets/$CLI_ARCHIVE"
@@ -115,6 +133,7 @@ verify_checksum "$WORK_ROOT/assets/$CLI_ARCHIVE" "$WORK_ROOT/assets/$CLI_CHECKSU
 
 export MANIFEST_PATH="$WORK_ROOT/assets/release-manifest.json"
 export CANDIDATE_MANIFEST_PATH="$WORK_ROOT/assets/candidate-manifest.json"
+export VERIFICATION_RECEIPT_PATH="$WORK_ROOT/assets/$receipt_asset_name"
 export COMPOSE_PATH="$WORK_ROOT/assets/docker-compose.release.yaml"
 export COMPOSE_CHECKSUM_PATH="$WORK_ROOT/assets/docker-compose.release.yaml.sha256"
 export CLI_ARCHIVE_PATH="$WORK_ROOT/assets/$CLI_ARCHIVE"
@@ -125,35 +144,55 @@ const fail = (message: string): never => {
   console.error(`distribution validation failed: ${message}`);
   Deno.exit(1);
 };
-const manifest = JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!));
-const candidate = JSON.parse(await Deno.readTextFile(Deno.env.get("CANDIDATE_MANIFEST_PATH")!));
-if (manifest.release_tag !== Deno.env.get("RELEASE_TAG_INPUT")) fail("release tag mismatch");
-if (manifest.version !== Deno.env.get("VERSION_INPUT")) fail("version mismatch");
-if (manifest.source_sha !== Deno.env.get("RELEASE_SHA_INPUT")) fail("source SHA mismatch");
-if (manifest.image?.repository !== Deno.env.get("IMAGE_REPOSITORY")) fail("image repository mismatch");
-const digest = async (path: string): Promise<string> => {
-  const hash = await crypto.subtle.digest("SHA-256", await Deno.readFile(path));
-  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-};
-const candidateId = `sha256:${await digest(Deno.env.get("CANDIDATE_MANIFEST_PATH")!)}`;
-if (manifest.candidate_id !== candidateId) fail("candidate ID does not match candidate manifest bytes");
-for (const [name, path] of [
-  ["docker-compose.release.yaml", Deno.env.get("COMPOSE_PATH")!],
-  ["docker-compose.release.yaml.sha256", Deno.env.get("COMPOSE_CHECKSUM_PATH")!],
-  [Deno.env.get("CLI_ARCHIVE_NAME")!, Deno.env.get("CLI_ARCHIVE_PATH")!],
-] as const) {
-  const record = manifest.files?.find((file: { name?: string }) => file.name === name);
-  if (!record) fail(`${name} is absent from release manifest`);
-  const bytes = await Deno.readFile(path);
-  if (record.size !== bytes.byteLength || record.sha256 !== await digest(path)) {
-    fail(`${name} differs from release manifest`);
+try {
+  const {
+    candidateIdFromManifestBytes,
+    findPublishedReleaseFile,
+    parseCandidateManifest,
+    parsePublishedReleaseManifest,
+    parseVerificationReceipt,
+    RELEASE_SMOKE_POLICY,
+    sha256Hex,
+    validatePublishedReleaseManifest,
+    validateVerificationReceipt,
+  } = await import("./tools/release_verify.ts");
+  const manifest = parsePublishedReleaseManifest(
+    JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!)),
+  );
+  const candidateBytes = await Deno.readFile(Deno.env.get("CANDIDATE_MANIFEST_PATH")!);
+  const candidate = parseCandidateManifest(candidateBytes);
+  const receipt = parseVerificationReceipt(
+    JSON.parse(await Deno.readTextFile(Deno.env.get("VERIFICATION_RECEIPT_PATH")!)),
+  );
+  const candidateId = await candidateIdFromManifestBytes(candidateBytes);
+  validatePublishedReleaseManifest(manifest, {
+    releaseTag: Deno.env.get("RELEASE_TAG_INPUT")!,
+    version: Deno.env.get("VERSION_INPUT")!,
+    sourceSha: Deno.env.get("RELEASE_SHA_INPUT")!,
+    imageRepository: Deno.env.get("IMAGE_REPOSITORY")!,
+    candidateId,
+  });
+  validateVerificationReceipt(receipt, {
+    candidateId,
+    candidateRunId: candidate.ci_run_id,
+    policy: RELEASE_SMOKE_POLICY,
+  });
+  for (const [name, path] of [
+    ["docker-compose.release.yaml", Deno.env.get("COMPOSE_PATH")!],
+    ["docker-compose.release.yaml.sha256", Deno.env.get("COMPOSE_CHECKSUM_PATH")!],
+    [Deno.env.get("CLI_ARCHIVE_NAME")!, Deno.env.get("CLI_ARCHIVE_PATH")!],
+  ] as const) {
+    const record = findPublishedReleaseFile(manifest, name);
+    const bytes = await Deno.readFile(path);
+    if (record.size !== bytes.byteLength || record.sha256 !== await sha256Hex(bytes)) fail(`${name} differs from release manifest`);
   }
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
 }
-if (!manifest.image?.digest?.startsWith("sha256:")) fail("image digest is missing");
 '
 
 log "Verifying published image digest and health"
-EXPECTED_IMAGE_DIGEST="$(deno eval 'console.log(JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!)).image.digest)')"
+EXPECTED_IMAGE_DIGEST="$(deno eval 'const { parsePublishedReleaseManifest } = await import("./tools/release_verify.ts"); console.log(parsePublishedReleaseManifest(JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!))).image.digest)')"
 actual_image_digest="$(docker buildx imagetools inspect "${IMAGE_REPOSITORY}:${VERSION_INPUT}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
 [ "$actual_image_digest" = "$EXPECTED_IMAGE_DIGEST" ] || fail "version tag points to ${actual_image_digest}, expected ${EXPECTED_IMAGE_DIGEST}"
 

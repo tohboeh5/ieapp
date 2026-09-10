@@ -30,7 +30,6 @@ type ArtifactManifest = {
   source_ci_required_check_run_id: string | null;
   contract_version: number;
   generated_at: string;
-  verification: { release_grade: string };
   artifacts: ManifestArtifact[];
 };
 
@@ -93,11 +92,6 @@ async function writeCandidateManifest(): Promise<void> {
     if (!required.has(kind)) {
       throw new Error(`candidate artifact set is missing ${kind}`);
     }
-  }
-  if (manifest.verification.release_grade !== "passed") {
-    throw new Error(
-      "UGOITE_RELEASE_GRADE=passed is required for a candidate manifest",
-    );
   }
   await writeJson(pathJoin(artifactRoot, "candidate-manifest.json"), manifest);
   await writeChecksums(manifest, pathJoin(artifactRoot, "SHA256SUMS"));
@@ -227,16 +221,13 @@ async function buildManifest(candidate: boolean): Promise<ArtifactManifest> {
   }
 
   return {
-    schema_version: candidate ? 3 : 2,
+    schema_version: candidate ? 4 : 2,
     version,
     source_sha: sourceSha,
     ci_run_id: ciRunId,
     source_ci_required_check_run_id: sourceCiRequiredCheckRunId,
-    contract_version: candidate ? 3 : 2,
+    contract_version: candidate ? 4 : 2,
     generated_at: new Date().toISOString(),
-    verification: {
-      release_grade: Deno.env.get("UGOITE_RELEASE_GRADE") ?? "not_run",
-    },
     artifacts,
   };
 }

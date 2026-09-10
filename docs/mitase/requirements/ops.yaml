@@ -36,19 +36,19 @@ requirements:
 
   - id: REQ-OPS-002
     title: Container Build Validation
-    description: The single runtime image is validated locally by `ci:release` and is smoke-tested by the hosted release gate, including the documented Compose quick start for the published version.
+    description: The single runtime image is validated locally by `ci:release`, smoke-tested from the exact candidate digest before publication, and checked for distribution identity and health after publication.
     priority: medium
     status: implemented
     criteria:
       - id: release-container-validation
         kind: behavior
-        statement: The release workflow builds the runtime image and the release smoke check exercises the published versioned image through the documented Compose quick start.
+        statement: The candidate workflow builds the runtime image, the publish preflight exercises the exact candidate digest, and the post-publish check exercises the versioned image without rebuilding it.
         governed_by: [POL-003#rule.governance, POL-005#rule.governance, POL-008#rule.governance]
     bindings:
       - id: release-container-verification
         role: evidence
         facet: release-gate
-        responsibility: Connect the local `ci:release` task, release workflow, and smoke script that provide the current container evidence. This slice records the existing gates and does not change runtime or release behavior.
+        responsibility: Connect the local `ci:release` task, release workflow, and distribution verifier that provide the current container evidence.
         targets:
           - id: local-release-gate
             adapter: declared
@@ -66,7 +66,7 @@ requirements:
                 anchor: REQ-OPS-002#criterion.release-container-validation
           - id: container-smoke
             adapter: declared
-            path: scripts/verify-release-container-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -725,7 +725,7 @@ requirements:
                 anchor: REQ-OPS-017#criterion.release-container-promotion
           - id: container-quickstart-script
             adapter: declared
-            path: scripts/verify-release-container-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
@@ -763,7 +763,7 @@ requirements:
                 anchor: REQ-OPS-018#criterion.cli-release-installation
           - id: cli-quickstart-script
             adapter: declared
-            path: scripts/verify-release-cli-quickstart.sh
+            path: scripts/verify-release-distribution.sh
             selector: { kind: file }
             claims:
               - kind: evidences
