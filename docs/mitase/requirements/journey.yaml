@@ -129,3 +129,48 @@ requirements:
                   - FEAT-JOURNEY-001#binding.frontend/target.entry-api
                   - FEAT-JOURNEY-001#binding.frontend/target.search-api
                 runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Reopen reads identical durable state' } }
+      - id: journey-cli-core-verification
+        role: verification
+        facet: verification
+        responsibility: Verify the same journey postconditions through the local/core CLI with explicit surface=cli transport=core/local evidence identity. CLI remote evidence attaches separately without duplicating these criteria.
+        targets:
+          - id: core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_journey_cli_core_local_durable_outcome }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.space-establish
+                covers: [FEAT-STO-001#binding.routing/target.space-command-routing]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.form-establish
+                covers: [FEAT-JOURNEY-001#binding.cli-core/target.form-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-create
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-edit
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.search-keyword
+                covers: [FEAT-JOURNEY-001#binding.cli-core/target.search-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-history
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-restore
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.reopen
+                covers:
+                  - FEAT-STO-001#binding.routing/target.space-command-routing
+                  - FEAT-API-001#binding.cli-implementation/target.entry-command
+                  - FEAT-JOURNEY-001#binding.cli-core/target.search-command
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }

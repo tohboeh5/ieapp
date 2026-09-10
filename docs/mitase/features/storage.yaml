@@ -221,6 +221,10 @@ features:
                 criterion: REQ-STO-010#criterion.routing-help-contract
               - kind: satisfies
                 criterion: REQ-API-001#criterion.space-lifecycle
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.space-establish
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.reopen
       - id: preferences
         role: implementation
         facet: storage

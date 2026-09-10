@@ -98,6 +98,27 @@ features:
             adapter: rust
             path: crates/ugoite-server/src/lib.rs
             selector: { kind: symbol, name: search_entries }
+      - id: cli-core
+        role: implementation
+        facet: cli
+        responsibility: Implement the local/core CLI Form and Search paths exercised by the journey core evidence. Entry and Space command ownership stays with their capability features; the same journey criteria gather those bindings without duplicating them.
+        targets:
+          - id: form-command
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/form.rs
+            selector: { kind: symbol, name: run }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.form-establish
+          - id: search-command
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/search.rs
+            selector: { kind: symbol, name: run }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.search-keyword
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.reopen
       - id: contract
         role: contract-source
         facet: api
@@ -148,3 +169,119 @@ features:
             adapter: openapi
             path: crates/ugoite-server/src/openapi.json
             selector: { kind: operation, method: get, path: '/spaces/{space_id}/search' }
+    contracts:
+      - id: journey-space-create
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.create-space
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.space-api
+            role: client
+          - target: FEAT-STO-001#binding.routing/target.space-command-routing
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.space-establish]
+      - id: journey-space-read
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.get-space
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.space-api
+            role: client
+          - target: FEAT-STO-001#binding.routing/target.space-command-routing
+            role: operator
+        guarantees:
+          - REQ-JOURNEY-001#criterion.space-establish
+          - REQ-JOURNEY-001#criterion.reopen
+      - id: journey-form-upsert
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.upsert-form
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.form-api
+            role: client
+          - target: FEAT-JOURNEY-001#binding.cli-core/target.form-command
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.form-establish]
+      - id: journey-form-read
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.get-form
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.form-api
+            role: client
+          - target: FEAT-JOURNEY-001#binding.cli-core/target.form-command
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.form-establish]
+      - id: journey-entry-create
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.create-entry
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.entry-create]
+      - id: journey-entry-update
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.update-entry
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.entry-edit]
+      - id: journey-entry-history
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.entry-history
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+        guarantees:
+          - REQ-JOURNEY-001#criterion.entry-history
+          - REQ-JOURNEY-001#criterion.reopen
+      - id: journey-entry-revision
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.entry-revision
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+        guarantees:
+          - REQ-JOURNEY-001#criterion.entry-history
+          - REQ-JOURNEY-001#criterion.entry-restore
+      - id: journey-entry-restore
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.restore-entry
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.entry-restore]
+      - id: journey-search
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.search-keyword
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.search-api
+            role: client
+          - target: FEAT-JOURNEY-001#binding.cli-core/target.search-command
+            role: operator
+        guarantees:
+          - REQ-JOURNEY-001#criterion.search-keyword
+          - REQ-JOURNEY-001#criterion.reopen
+      - id: journey-reopen
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.entry-history
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.space-api
+            role: client
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-JOURNEY-001#binding.frontend/target.search-api
+            role: client
+          - target: FEAT-STO-001#binding.routing/target.space-command-routing
+            role: operator
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+          - target: FEAT-JOURNEY-001#binding.cli-core/target.search-command
+            role: operator
+        guarantees: [REQ-JOURNEY-001#criterion.reopen]
