@@ -1802,6 +1802,14 @@ impl UgoiteService {
         .await?;
         self.schedule_asset_text_refresh(space_id);
         let result = entry::get_entry(&self.operator, &workspace, entry_id).await?;
+        self.record_committed_entry_revision(
+            space_id,
+            entry_id,
+            crate::mutation_audit::ENTRY_CREATED_ACTION,
+            &[],
+            author,
+        )
+        .await;
         Ok(result)
     }
 
@@ -1888,6 +1896,14 @@ impl UgoiteService {
         .await?;
         self.schedule_asset_text_refresh(space_id);
         let result = entry::get_entry(&self.operator, &workspace, entry_id).await?;
+        self.record_committed_entry_revision(
+            space_id,
+            entry_id,
+            crate::mutation_audit::ENTRY_CREATED_ACTION,
+            principal_ids,
+            author,
+        )
+        .await;
         Ok(result)
     }
 
@@ -1954,6 +1970,14 @@ impl UgoiteService {
         )
         .await?;
         self.schedule_asset_text_refresh(space_id);
+        self.record_committed_entry_revision(
+            space_id,
+            entry_id,
+            crate::mutation_audit::ENTRY_UPDATED_ACTION,
+            &[],
+            author,
+        )
+        .await;
         Ok(result)
     }
 
@@ -2035,6 +2059,14 @@ impl UgoiteService {
         )
         .await?;
         self.schedule_asset_text_refresh(space_id);
+        self.record_committed_entry_revision(
+            space_id,
+            entry_id,
+            crate::mutation_audit::ENTRY_UPDATED_ACTION,
+            principal_ids,
+            author,
+        )
+        .await;
         Ok(result)
     }
 
@@ -2057,6 +2089,8 @@ impl UgoiteService {
         )
         .await?;
         self.schedule_asset_text_refresh(space_id);
+        self.record_committed_entry_delete(space_id, entry_id, &[], actor)
+            .await;
         Ok(())
     }
 
@@ -2081,6 +2115,8 @@ impl UgoiteService {
         )
         .await?;
         self.schedule_asset_text_refresh(space_id);
+        self.record_committed_entry_delete(space_id, entry_id, &[], actor)
+            .await;
         Ok(())
     }
 
@@ -3802,7 +3838,7 @@ impl UgoiteService {
         self.validate_complete_space(space_id).await?;
         validate_storage_id(validate_sql_id(sql_id))?;
         let integrity = RealIntegrityProvider::from_space(&self.operator, space_id).await?;
-        saved_sql::create_sql(
+        let created = saved_sql::create_sql(
             &self.operator,
             &self.workspace_path(space_id),
             sql_id,
@@ -3810,7 +3846,23 @@ impl UgoiteService {
             author,
             &integrity,
         )
-        .await
+        .await?;
+        if let Some(revision_id) = created
+            .get("revision_id")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        {
+            self.record_saved_sql_audit(
+                space_id,
+                crate::mutation_audit::SAVED_SQL_CREATED_ACTION,
+                sql_id,
+                &revision_id,
+                &[],
+                author,
+            )
+            .await;
+        }
+        Ok(created)
     }
 
     pub async fn get_saved_sql(&self, space_id: &str, sql_id: &str) -> Result<Value> {
@@ -3839,7 +3891,7 @@ impl UgoiteService {
         }
         validate_storage_id(validate_revision_id(parent_revision_id))?;
         let integrity = RealIntegrityProvider::from_space(&self.operator, space_id).await?;
-        saved_sql::update_sql(
+        let updated = saved_sql::update_sql(
             &self.operator,
             &self.workspace_path(space_id),
             sql_id,
@@ -3848,7 +3900,23 @@ impl UgoiteService {
             author,
             &integrity,
         )
-        .await
+        .await?;
+        if let Some(revision_id) = updated
+            .get("revision_id")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        {
+            self.record_saved_sql_audit(
+                space_id,
+                crate::mutation_audit::SAVED_SQL_UPDATED_ACTION,
+                sql_id,
+                &revision_id,
+                &[],
+                author,
+            )
+            .await;
+        }
+        Ok(updated)
     }
 
     pub async fn delete_saved_sql(&self, space_id: &str, sql_id: &str, actor: &str) -> Result<()> {
@@ -3861,7 +3929,31 @@ impl UgoiteService {
             sql_id,
             actor,
         )
+        .await?;
+        // Evidence uses the committed tombstone revision only: a pre-commit
+        // snapshot would name the wrong revision and never converge with
+        // reconcile. An unreadable tombstone means storage itself failed, in
+        // which case delivery would fail too; reconcile closes the gap.
+        if let Some((revision_id, _, _)) = saved_sql::read_sql_row_for_audit(
+            &self.operator,
+            &self.workspace_path(space_id),
+            sql_id,
+        )
         .await
+        .ok()
+        .flatten()
+        {
+            self.record_saved_sql_audit(
+                space_id,
+                crate::mutation_audit::SAVED_SQL_DELETED_ACTION,
+                sql_id,
+                &revision_id,
+                &[],
+                actor,
+            )
+            .await;
+        }
+        Ok(())
     }
 
     pub async fn test_storage_connection(

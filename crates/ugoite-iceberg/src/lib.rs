@@ -8,6 +8,7 @@
 
 pub mod derived_relation;
 mod logical_storage;
+pub mod mutation_audit;
 mod read_schema_provider;
 mod search_normalization;
 mod space_catalog;
