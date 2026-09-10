@@ -189,7 +189,6 @@ requirements:
   priority: medium
   status: planned
   verification: untraced
-
 - set_id: REQCAT-OPS
   source_file: requirements/ops.yaml
   scope: Operational quality, workflow, and automation requirements.
