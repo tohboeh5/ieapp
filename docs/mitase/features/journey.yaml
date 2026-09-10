@@ -119,6 +119,27 @@ features:
                 criterion: REQ-JOURNEY-001#criterion.search-keyword
               - kind: satisfies
                 criterion: REQ-JOURNEY-001#criterion.reopen
+      - id: cli-remote
+        role: operation
+        facet: cli
+        responsibility: Route the same journey flow through the server-backed CLI transport. Command ownership stays with the capability features and the cli-core binding; this binding only separates remote evidence identity from core evidence.
+        targets:
+          - id: space-command
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/space.rs
+            selector: { kind: symbol, name: run }
+          - id: form-command
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/form.rs
+            selector: { kind: symbol, name: run }
+          - id: entry-command
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/entry.rs
+            selector: { kind: symbol, name: run }
+          - id: search-command
+            adapter: rust
+            path: crates/ugoite-cli/src/commands/search.rs
+            selector: { kind: symbol, name: run }
       - id: contract
         role: contract-source
         facet: api

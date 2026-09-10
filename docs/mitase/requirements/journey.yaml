@@ -174,3 +174,44 @@ requirements:
                   - FEAT-API-001#binding.cli-implementation/target.entry-command
                   - FEAT-JOURNEY-001#binding.cli-core/target.search-command
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_journey_cli_core_local_durable_outcome } }
+      - id: journey-cli-remote-verification
+        role: verification
+        facet: verification
+        responsibility: Verify the journey postconditions through the server-backed CLI with explicit surface=cli transport=remote evidence identity. Remote Space creation is unreachable for token identities by product design, so space-establish carries core evidence only and the remote journey provisions its Space as fixture setup.
+        targets:
+          - id: remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: journey_cli_remote_reaches_durable_outcome }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.form-establish
+                covers: [FEAT-JOURNEY-001#binding.cli-core/target.form-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-create
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-edit
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.search-keyword
+                covers: [FEAT-JOURNEY-001#binding.cli-core/target.search-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-history
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-restore
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.reopen
+                covers:
+                  - FEAT-STO-001#binding.routing/target.space-command-routing
+                  - FEAT-API-001#binding.cli-implementation/target.entry-command
+                  - FEAT-JOURNEY-001#binding.cli-core/target.search-command
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: journey_cli_remote_reaches_durable_outcome } }

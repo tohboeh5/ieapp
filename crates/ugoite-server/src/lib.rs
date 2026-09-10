@@ -490,6 +490,14 @@ pub struct TestMcpAccess {
     pub space_uid: Uuid,
 }
 
+#[cfg(feature = "test-support")]
+#[doc(hidden)]
+pub struct TestRestAccess {
+    pub access_token: String,
+    pub credential_id: Uuid,
+    pub space_uid: Uuid,
+}
+
 impl AppState {
     pub fn new(root_uri: impl Into<String>) -> anyhow::Result<Self> {
         let root_uri = root_uri.into();
@@ -618,6 +626,91 @@ impl AppState {
             access_token,
             credential_id: credential.credential_id,
             resource,
+            space_uid,
+        })
+    }
+
+    #[cfg(feature = "test-support")]
+    #[doc(hidden)]
+    pub async fn issue_test_rest_access(
+        &self,
+        public_key_jwk: Value,
+    ) -> anyhow::Result<TestRestAccess> {
+        let principal_id = Uuid::now_v7();
+        let slug = format!("journey-remote-{}", Uuid::now_v7());
+        let space_uid = self
+            .service
+            .create_space_for_principal(&slug, principal_id, "Journey remote test")
+            .await?;
+        self.identity
+            .seed_test_recovery_accounts(&[(principal_id, space_uid, principal_id)])
+            .await?;
+
+        let (issuer, node_id) = self.identity.issuer_metadata().await?;
+        let actions = [
+            "read".to_string(),
+            "create".to_string(),
+            "update".to_string(),
+        ]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+        let device = self
+            .identity
+            .start_device_authorization(
+                "Journey remote test",
+                public_key_jwk.clone(),
+                Some(space_uid),
+                actions.clone(),
+                None,
+            )
+            .await?;
+        self.identity
+            .approve_device_authorization(
+                device["user_code"].as_str().ok_or_else(|| {
+                    anyhow::anyhow!("test device authorization omitted user code")
+                })?,
+                principal_id,
+                principal_id,
+                space_uid,
+                actions,
+            )
+            .await?;
+        let (credential, _, _, _) =
+            self.identity
+                .exchange_device_code(device["device_code"].as_str().ok_or_else(|| {
+                    anyhow::anyhow!("test device authorization omitted device code")
+                })?)
+                .await?;
+        let now = Utc::now().timestamp();
+        let claims = AccessTokenClaims {
+            iss: issuer.clone(),
+            node_id,
+            sub: principal_id,
+            principal_type: "human".to_string(),
+            actor_principal_id: None,
+            aud: issuer,
+            space_uid,
+            granted_actions: [
+                "read".to_string(),
+                "create".to_string(),
+                "update".to_string(),
+            ]
+            .into_iter()
+            .collect(),
+            actor_chain: vec![principal_id],
+            exp: now + 300,
+            iat: now,
+            jti: Uuid::now_v7(),
+            credential_id: credential.credential_id,
+            credential_generation: Some(credential.credential_generation),
+            cnf: Confirmation {
+                jkt: oauth::jwk_thumbprint(&public_key_jwk)?,
+            },
+        };
+        let access_token = self.identity.issue_access_credential(claims).await?;
+        Ok(TestRestAccess {
+            access_token,
+            credential_id: credential.credential_id,
             space_uid,
         })
     }
