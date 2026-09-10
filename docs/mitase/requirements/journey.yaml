@@ -1,0 +1,131 @@
+schema: mitase/spec/v1
+kind: requirements
+namespace: journey
+category: Cross-surface Golden Knowledge Journey outcome semantics
+requirements:
+  - id: REQ-JOURNEY-001
+    title: Golden Knowledge Journey outcome
+    description: 'JOURNEY-KNOWLEDGE-001 carries one Knowledge outcome across Space create, Form establish, Entry create, Entry edit, Search, History, Restore, and Reopen. Criteria state durable postconditions, never surface interaction steps; every surface must reach the same outcome with equivalent meaning.'
+    priority: high
+    status: implemented
+    criteria:
+      - id: space-establish
+        kind: behavior
+        statement: Given an empty usable Space request, a durable Space comes into existence and reopens with identical compatibility semantics regardless of surface.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: form-establish
+        kind: behavior
+        statement: The user can establish a Form defining the schema used by a subsequent Entry, and the persisted Form carries equivalent schema semantics regardless of surface.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: entry-create
+        kind: behavior
+        statement: Creating an Entry produces an equivalent Knowledge object and appends exactly one revision.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: entry-edit
+        kind: behavior
+        statement: Editing an Entry appends a new revision under identical optimistic-concurrency and validation semantics, and a stale parent revision conflicts instead of overwriting.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: search-keyword
+        kind: behavior
+        statement: The updated durable Entry is discoverable under identical keyword conditions regardless of surface.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: entry-history
+        kind: behavior
+        statement: Create and edit remain observable as append-only history without rewriting prior revisions.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: entry-restore
+        kind: behavior
+        statement: Restoring a historical revision appends a new revision replaying that content instead of destructively rolling back, and history never shortens.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: reopen
+        kind: behavior
+        statement: Across process and session boundaries the same durable Space, history, and search outcome read back identically.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+    bindings:
+      - id: journey-frontend-verification
+        role: verification
+        facet: verification
+        responsibility: Verify every journey postcondition through the exact server-backed browser journey cases. CLI core and CLI remote evidence attach to the same criteria in later workstream steps without duplicating them.
+        targets:
+          - id: space-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Space create is durable and reopenable' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.space-establish
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.space-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Space create is durable and reopenable' } }
+          - id: form-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Form establish carries equivalent schema semantics' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.form-establish
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.form-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Form establish carries equivalent schema semantics' } }
+          - id: entry-create-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Entry create appends exactly one revision' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-create
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.entry-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Entry create appends exactly one revision' } }
+          - id: entry-edit-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Entry edit enforces optimistic concurrency' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-edit
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.entry-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Entry edit enforces optimistic concurrency' } }
+          - id: search-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Search finds the updated durable entry' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.search-keyword
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.search-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Search finds the updated durable entry' } }
+          - id: history-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: History stays append-only across create and edit' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-history
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.entry-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: History stays append-only across create and edit' } }
+          - id: restore-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Restore appends a new revision without shortening history' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.entry-restore
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.entry-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Restore appends a new revision without shortening history' } }
+          - id: reopen-case
+            adapter: typescript
+            path: e2e/knowledge-journey.test.ts
+            selector: { kind: test, name: 'JOURNEY-KNOWLEDGE-001: Reopen reads identical durable state' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-001#criterion.reopen
+                covers:
+                  - FEAT-JOURNEY-001#binding.frontend/target.space-api
+                  - FEAT-JOURNEY-001#binding.frontend/target.entry-api
+                  - FEAT-JOURNEY-001#binding.frontend/target.search-api
+                runner: { runner: e2e-playwright, arguments: { file: e2e/knowledge-journey.test.ts, test: 'JOURNEY-KNOWLEDGE-001: Reopen reads identical durable state' } }

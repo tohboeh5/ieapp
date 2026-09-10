@@ -171,8 +171,13 @@ export const JOURNEY_CAPABILITIES: JourneyCapability[] = [
     requirement: "REQ-ENTRY-005#criterion.history",
     outcome:
       "Restore appends a new revision or change; history never shortens and no destructive rollback occurs.",
-    // No Playwright evidence wires restore yet; C1 adds the journey case.
-    e2eEvidence: [],
+    e2eEvidence: [
+      {
+        file: "e2e/knowledge-journey.test.ts",
+        fragment:
+          "JOURNEY-KNOWLEDGE-001: Restore appends a new revision without shortening history",
+      },
+    ],
   },
 ];
 
