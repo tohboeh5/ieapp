@@ -224,9 +224,10 @@ cat >"$STACK_DIR/.env" <<EOF
 UGOITE_VERSION=${VERSION_INPUT}
 UGOITE_DATA_DIR=./data
 UGOITE_PORT=8000
-UGOITE_PUBLIC_ORIGIN=http://127.0.0.1:8000
-UGOITE_API_BASE_URL=http://127.0.0.1:8000/api
-UGOITE_WEBAUTHN_RP_ID=127.0.0.1
+# WebAuthn RP IDs must use a hostname; keep this aligned with the E2E convention for quick-start checks.
+UGOITE_PUBLIC_ORIGIN=http://localhost:8000
+UGOITE_API_BASE_URL=http://localhost:8000/api
+UGOITE_WEBAUTHN_RP_ID=localhost
 EOF
 
 log "Starting released compose stack"
@@ -258,10 +259,10 @@ fi
 
 log "Waiting for Ugoite"
 bash "$SCRIPT_DIR/wait-for-http.sh" \
-  "http://127.0.0.1:8000/health" \
+  "http://localhost:8000/health" \
   "$STACK_TIMEOUT_SECONDS"
 bash "$SCRIPT_DIR/wait-for-http.sh" \
-  "http://127.0.0.1:8000/login" \
+  "http://localhost:8000/login" \
   "$STACK_TIMEOUT_SECONDS"
 
 E2E_SETUP_SECRET="$(
@@ -278,8 +279,8 @@ export E2E_SETUP_SECRET
 log "Running release browser quick-start stories"
 (
   cd "$REPO_ROOT/e2e"
-  FRONTEND_URL="http://127.0.0.1:8000" \
-    BACKEND_URL="http://127.0.0.1:8000" \
+  FRONTEND_URL="http://localhost:8000" \
+    BACKEND_URL="http://localhost:8000" \
     E2E_SETUP_SECRET="$E2E_SETUP_SECRET" \
     deno task smoke
 ) 2>&1 | redact_compose_logs
@@ -303,7 +304,7 @@ printf '%s' "$help_output" | grep -Fq "Ugoite CLI - Knowledge base management" |
 log "Verified: installed CLI answers --help"
 
 HOME="$CLI_HOME" PATH="$CLI_INSTALL_DIR:$PATH" "$CLI_BINARY" \
-  config set --mode api --api-url http://127.0.0.1:8000/api >/dev/null
+  config set --mode api --api-url http://localhost:8000/api >/dev/null
 
 auth_help="$($CLI_BINARY auth --help 2>&1)"
 printf '%s' "$auth_help" | grep -Fq "login" || fail "installed CLI does not expose device login"
