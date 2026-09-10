@@ -776,3 +776,49 @@ async fn test_parity_remote_unauthenticated_mutation_rejected_without_mutation()
     );
     assert_eq!(revision_ids(&history).len(), 1);
 }
+
+/// Remote deletes without a single-use human approval are rejected and
+/// mutate nothing. The approval ceremony itself stays a browser session
+/// concern; the positive tombstone path carries core evidence only.
+#[tokio::test]
+async fn test_parity_remote_delete_without_approval_rejected_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+        fixture,
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+        "ParityRemoteForm",
+    )
+    .await;
+    let v1 = parity_markdown("ParityRemoteForm", "Parity delauth", Some("ok"), "v1");
+    create_parity_entry(fixture, "parity-delauth", &v1).await;
+    let denied = run_cli(
+        &fixture.config_path,
+        &["entry", "delete", &fixture.space_id, "parity-delauth"],
+    )
+    .await;
+    assert!(
+        !denied.status.success(),
+        "unapproved remote delete must be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&denied.stderr);
+    assert!(stderr.contains("human approval"), "stderr: {stderr}");
+    let current = run_cli(
+        &fixture.config_path,
+        &["entry", "get", &fixture.space_id, "parity-delauth"],
+    )
+    .await;
+    assert!(
+        current.status.success(),
+        "rejected delete must leave the entry readable"
+    );
+    let history = stdout_json(
+        &run_cli(
+            &fixture.config_path,
+            &["entry", "history", &fixture.space_id, "parity-delauth"],
+        )
+        .await,
+        "parity history after rejected delete",
+    );
+    assert_eq!(revision_ids(&history).len(), 1);
+}

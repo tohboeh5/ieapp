@@ -246,6 +246,14 @@ requirements:
         kind: behavior
         statement: Unauthenticated remote mutations are rejected with 401-equivalent semantics and persist nothing. Local core has no auth boundary by design.
         governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: entry-delete
+        kind: behavior
+        statement: Deleting an Entry records a tombstone that excludes it from current reads and listings while retaining every revision in history.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
+      - id: delete-requires-approval
+        kind: behavior
+        statement: Remote deletes without a single-use human approval are rejected with approval-required semantics and mutate nothing. The approval ceremony stays a browser session concern.
+        governed_by: [POL-002#rule.governance, POL-004#rule.governance, POL-006#rule.governance, POL-014#rule.governance]
     bindings:
       - id: journey-parity-core-verification
         role: verification
@@ -297,6 +305,15 @@ requirements:
                 criterion: REQ-JOURNEY-002#criterion.missing-form
                 covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_missing_form_rejected_without_mutation } }
+          - id: entry-delete-core-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_core.rs
+            selector: { kind: test, name: test_parity_core_delete_tombstone_keeps_history }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.entry-delete
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_core, test: test_parity_core_delete_tombstone_keeps_history } }
       - id: journey-parity-remote-verification
         role: verification
         facet: verification
@@ -356,6 +373,15 @@ requirements:
                 criterion: REQ-JOURNEY-002#criterion.remote-authorization
                 covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
                 runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_unauthenticated_mutation_rejected_without_mutation } }
+          - id: delete-approval-remote-case
+            adapter: rust
+            path: crates/ugoite-cli/tests/test_journey_remote.rs
+            selector: { kind: test, name: test_parity_remote_delete_without_approval_rejected_without_mutation }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-002#criterion.delete-requires-approval
+                covers: [FEAT-API-001#binding.cli-implementation/target.entry-command]
+                runner: { runner: cargo-test-integration, arguments: { package: ugoite-cli, harness: test_journey_remote, test: test_parity_remote_delete_without_approval_rejected_without_mutation } }
       - id: journey-parity-frontend-verification
         role: verification
         facet: verification
@@ -370,3 +396,33 @@ requirements:
                 criterion: REQ-JOURNEY-002#criterion.stale-revision
                 covers: [FEAT-JOURNEY-001#binding.frontend/target.entry-api]
                 runner: { runner: e2e-playwright, arguments: { file: e2e/entries.test.ts, test: 'PUT with stale revision_id should return 409 conflict' } }
+
+  - id: REQ-JOURNEY-003
+    title: Journey Frontend-only usability
+    description: 'Browser-only usability obligations for the journey workflow. These criteria deliberately carry no CLI counterpart: keyboard, focus, and recovery guidance have no meaningful CLI parity, and inventing one would be false evidence.'
+    priority: medium
+    status: implemented
+    criteria:
+      - id: conflict-recovery-guidance
+        kind: behavior
+        statement: After a revision conflict the browser shows refresh and recovery guidance while preserving the edited draft instead of losing it.
+        governed_by: [POL-006#rule.governance, POL-014#rule.governance]
+      - id: validation-focus
+        kind: behavior
+        statement: Failed creation validation moves browser focus to the offending field, marks it invalid, and blocks the mutation without discarding input.
+        governed_by: [POL-006#rule.governance, POL-014#rule.governance]
+    bindings:
+      - id: journey-ux-frontend-verification
+        role: verification
+        facet: verification
+        responsibility: Verify browser-only usability through exact Frontend component tests. No CLI evidence is required or accepted for these criteria.
+        targets:
+          - id: validation-focus-case
+            adapter: typescript
+            path: frontend/src/components/EntryDetailPane.test.tsx
+            selector: { kind: test, name: 'focuses an empty required asset field before creating an entry' }
+            claims:
+              - kind: verifies
+                criterion: REQ-JOURNEY-003#criterion.validation-focus
+                covers: [FEAT-JOURNEY-002#binding.frontend/target.entry-detail-pane]
+                runner: { runner: frontend-vitest-file, arguments: { file: src/components/EntryDetailPane.test.tsx, test: 'focuses an empty required asset field before creating an entry' } }

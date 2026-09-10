@@ -649,10 +649,14 @@ impl AppState {
             .await?;
 
         let (issuer, node_id) = self.identity.issuer_metadata().await?;
+        // Mirror a device login requesting the delete scope alongside the
+        // CLI defaults: dangerous operations still require their own
+        // single-use human approval on top of the granted action.
         let actions = [
             "read".to_string(),
             "create".to_string(),
             "update".to_string(),
+            "delete".to_string(),
         ]
         .into_iter()
         .collect::<BTreeSet<_>>();
@@ -696,6 +700,7 @@ impl AppState {
                 "read".to_string(),
                 "create".to_string(),
                 "update".to_string(),
+                "delete".to_string(),
             ]
             .into_iter()
             .collect(),
