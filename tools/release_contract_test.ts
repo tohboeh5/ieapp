@@ -84,6 +84,15 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     ),
     true,
   );
+  assertEquals(candidate.includes("checks: read"), true);
+  assertEquals(candidate.includes("ci-required"), true);
+  assertEquals(candidate.includes("source_ci_required_check_run_id"), true);
+  assertEquals(candidate.includes("release-grade:"), false);
+  assertEquals(candidate.includes("mise run ci:release"), false);
+  assertEquals(
+    releaseTool.includes('await run("mise", ["run", "ci:release"])'),
+    false,
+  );
   assertEquals(
     publish.includes("run-id: ${{ inputs.candidate_run_id }}"),
     true,
@@ -178,6 +187,7 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     version: "0.1.0",
     source_sha: source,
     ci_run_id: "test-run",
+    source_ci_required_check_run_id: "test-ci-check",
     verification: { release_grade: "passed" },
     artifacts: [
       {
@@ -277,6 +287,7 @@ Deno.test("REQ-OPS-044: candidate writer records every promotion surface", async
       UGOITE_ARTIFACT_ROOT: artifactRoot,
       UGOITE_SOURCE_SHA: source,
       UGOITE_CI_RUN_ID: "test-run",
+      UGOITE_SOURCE_CI_REQUIRED_CHECK_RUN_ID: "test-ci-check",
       UGOITE_RELEASE_GRADE: "passed",
       UGOITE_CONTAINER_TAG: "sha-test",
       UGOITE_CONTAINER_DIGEST: `sha256:${"a".repeat(64)}`,

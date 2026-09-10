@@ -33,6 +33,7 @@ type CandidateManifest = {
   version: string;
   source_sha: string;
   ci_run_id: string;
+  source_ci_required_check_run_id: string;
   verification: { release_grade: string };
   artifacts: CandidateArtifact[];
 };
@@ -267,7 +268,11 @@ async function latestPublishedStableVersion(): Promise<Version | null> {
 
 async function createCandidate(): Promise<void> {
   if (Deno.env.get("UGOITE_RELEASE_CANDIDATE_PREBUILT") !== "true") {
-    await run("mise", ["run", "ci:release"]);
+    await run("mise", ["run", "build"]);
+    await run("mise", ["run", "package"]);
+    await run("mise", ["run", "verify"]);
+    await run("mise", ["run", "package:npm"]);
+    await run("mise", ["run", "verify:npm"]);
     await stageReleaseAssets();
   }
   await validateVersion();
@@ -308,6 +313,11 @@ async function verifyCandidate(
     );
   }
   if (!manifest.ci_run_id) throw new Error("candidate ci_run_id is required");
+  if (!manifest.source_ci_required_check_run_id) {
+    throw new Error(
+      "candidate source_ci_required_check_run_id is required",
+    );
+  }
   if (manifest.verification?.release_grade !== "passed") {
     throw new Error("candidate verification.release_grade must be passed");
   }

@@ -85,12 +85,14 @@ version with the latest stable tag before updating projections. A compatible
 change advances the patch; a breaking change advances the minor. Preparation
 never creates a tag, release, or registry artifact.
 
-`Release Candidate` checks out one exact source SHA, runs the canonical
-release-grade build/package/verification lanes, and stores the resulting
-artifact set plus a schema-versioned `candidate-manifest.json`. The manifest
-records version, source SHA, CI run identity, verification state, artifact
-digests, and platform information. Its candidate ID is the SHA-256 of the exact
-manifest bytes; the manifest does not contain that ID.
+`Release Candidate` checks out one exact source SHA, verifies that it is
+reachable from `main` and has a successful `ci-required` check, then builds and
+packages the candidate artifact set without rerunning the merge gate or full E2E
+suite. It stores the result plus a schema-versioned `candidate-manifest.json`.
+The manifest records version, source SHA, candidate run identity, source
+`ci-required` check-run identity, verification state, artifact digests, and
+platform information. Its candidate ID is the SHA-256 of the exact manifest
+bytes; the manifest does not contain that ID.
 
 `Release Publish` accepts a candidate run and candidate ID, downloads the
 candidate artifact, and invokes `release:verify-candidate` before promotion. The

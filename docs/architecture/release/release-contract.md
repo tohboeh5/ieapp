@@ -41,11 +41,15 @@ operation.
 
 ## Candidates
 
-`mise run release:candidate` builds and packages from one exact source SHA, runs
-the release-grade checks, and writes `candidate-manifest.json`. The manifest
-records the version, source SHA, CI run identity, release-grade result, artifact
-paths, digests, sizes, platforms, and container coordinates. A candidate exists
-only when `verification.release_grade` is `passed`.
+`mise run release:candidate` builds and packages from one exact source SHA and
+writes `candidate-manifest.json`. Hosted candidate generation first requires the
+selected SHA to be reachable from `main` and to have a successful `ci-required`
+check. That source-qualification result is recorded by check-run identity; the
+candidate workflow does not rerun the merge gate or full E2E suite. The manifest
+records the version, source SHA, candidate run identity, source `ci-required`
+check-run identity, artifact paths, digests, sizes, platforms, and container
+coordinates. A candidate exists only when `verification.release_grade` is
+`passed`.
 
 The candidate identity is the SHA-256 digest of the exact manifest bytes. The
 manifest does not contain its own identity, so two attempts for the same
