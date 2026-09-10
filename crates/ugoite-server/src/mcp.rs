@@ -496,6 +496,8 @@ async fn authenticate(
         session_token: None,
         human_approval_token: None,
         human_approval_header_invalid: false,
+        credential_id: Some(claims.credential_id),
+        step_up_challenge_id: None,
         request_id: Uuid::now_v7(),
     };
     let _ = method;
@@ -1804,6 +1806,8 @@ mod tests {
                 session_token: None,
                 human_approval_token: None,
                 human_approval_header_invalid: false,
+                credential_id: Some(claims.credential_id),
+                step_up_challenge_id: None,
                 request_id: Uuid::now_v7(),
             },
             claims,
