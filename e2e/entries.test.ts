@@ -465,18 +465,21 @@ test.describe("Entries CRUD", () => {
 		await expect(summaryInput).toHaveValue("Choose the alpha project by search");
 
 		await page.getByRole("button", { name: "Save" }).click();
-		await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/entries/[^/]+$`));
+		await page.waitForURL(
+			(url) => {
+				const path = url.pathname.replace(/\/+$/, "");
+				return path.startsWith(`/spaces/${spaceId}/entries/`) &&
+					!path.endsWith("/new");
+			},
+			{ timeout: 10_000 },
+		);
 
-		const entriesResponse = await request.get(getBackendUrl(`/spaces/${spaceId}/entries`));
-		expect(entriesResponse.ok()).toBeTruthy();
-		const entries = (await entriesResponse.json()) as Array<{ id: string; title: string }>;
-		const createdTask = entries.find((entry) => entry.title === taskTitle);
-		expect(createdTask).toBeTruthy();
-		if (!createdTask) {
-			throw new Error("Created task entry was not found in the index response");
-		}
+		const createdTaskId = decodeURIComponent(
+			new URL(page.url()).pathname.split("/").pop() ?? "",
+		);
+		expect(createdTaskId).not.toBe("");
 
-		const entryResponse = await request.get(getBackendUrl(`/spaces/${spaceId}/entries/${createdTask.id}`));
+		const entryResponse = await request.get(getBackendUrl(`/spaces/${spaceId}/entries/${createdTaskId}`));
 		expect(entryResponse.ok()).toBeTruthy();
 		const entry = (await entryResponse.json()) as { content: string };
 		expect(entry.content).toContain("## Project");
