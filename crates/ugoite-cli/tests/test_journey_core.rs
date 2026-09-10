@@ -552,3 +552,77 @@ fn test_parity_core_missing_form_rejected_without_mutation() {
     );
     entry_absent(&space, "parity-noform");
 }
+
+/// Deleting an Entry records a tombstone: current reads exclude it while
+/// history retains every revision.
+#[test]
+fn test_parity_core_delete_tombstone_keeps_history() {
+    let space = setup_parity_space(
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+    );
+    let v1 = parity_markdown(space.form_name, "Parity delete", Some("ok"), "v1");
+    let created = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &[
+                "entry",
+                "create",
+                "--content",
+                &v1,
+                &space.space_path,
+                "parity-delete",
+            ],
+        ),
+        "parity setup entry create",
+    );
+    assert!(contains_string(&created, "parity-delete"));
+    let history = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &["entry", "history", &space.space_path, "parity-delete"],
+        ),
+        "parity setup history",
+    );
+    let before = revision_ids(&history).len();
+    assert!(before >= 1);
+
+    let deleted = run_cli(
+        &space.config_path,
+        &["entry", "delete", &space.space_path, "parity-delete"],
+    );
+    assert!(
+        deleted.status.success(),
+        "entry delete failed: {}",
+        String::from_utf8_lossy(&deleted.stderr)
+    );
+
+    let current = run_cli(
+        &space.config_path,
+        &["entry", "get", &space.space_path, "parity-delete"],
+    );
+    assert!(
+        !current.status.success(),
+        "deleted entry must leave current reads"
+    );
+
+    let listed = stdout_json(
+        &run_cli(&space.config_path, &["entry", "list", &space.space_path]),
+        "parity entry list after delete",
+    );
+    assert!(
+        !contains_string(&listed, "parity-delete"),
+        "deleted entry must leave current listings: {listed}"
+    );
+
+    let history = stdout_json(
+        &run_cli(
+            &space.config_path,
+            &["entry", "history", &space.space_path, "parity-delete"],
+        ),
+        "parity history after delete",
+    );
+    assert!(
+        revision_ids(&history).len() >= before,
+        "delete must not shorten history"
+    );
+}

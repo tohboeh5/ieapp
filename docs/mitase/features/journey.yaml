@@ -317,3 +317,23 @@ features:
           - target: FEAT-API-001#binding.cli-implementation/target.entry-command
             role: operator
         guarantees: [REQ-JOURNEY-002#criterion.stale-revision]
+
+  - id: FEAT-JOURNEY-002
+    title: Journey Frontend-only usability surface
+    summary: Keep browser-only journey usability (conflict recovery guidance, validation focus) connected to exact Frontend component evidence without inventing CLI parity.
+    status: implemented
+    bindings:
+      - id: frontend
+        role: implementation
+        facet: frontend
+        responsibility: Keep the shipped Entry detail workspace connected to the browser-only usability criteria.
+        targets:
+          - id: entry-detail-pane
+            adapter: typescript
+            path: frontend/src/components/EntryDetailPane.tsx
+            selector: { kind: file }
+            claims:
+              - kind: satisfies
+                criterion: REQ-JOURNEY-003#criterion.conflict-recovery-guidance
+              - kind: satisfies
+                criterion: REQ-JOURNEY-003#criterion.validation-focus

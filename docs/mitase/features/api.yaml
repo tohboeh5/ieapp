@@ -404,6 +404,10 @@ features:
                 criterion: REQ-JOURNEY-002#criterion.missing-form
               - kind: satisfies
                 criterion: REQ-JOURNEY-002#criterion.remote-authorization
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.entry-delete
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.delete-requires-approval
           - id: sql-command
             adapter: rust
             path: crates/ugoite-cli/src/commands/sql.rs
