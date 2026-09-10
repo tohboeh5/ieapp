@@ -198,10 +198,21 @@ cleanup() {
         UGOITE_NODE_SECRET_KEY="$NODE_SECRET_KEY" \
           "${compose_cmd[@]}" down --remove-orphans -v
     ) || true
+
+    # The container runs as `ugoite`, so bind-mounted data may be owned by root
+    # from the host's perspective. Remove it through the released image before
+    # deleting the temporary workdir.
+    (
+      cd "$STACK_DIR" &&
+        UGOITE_NODE_SECRET_KEY="$NODE_SECRET_KEY" \
+          "${compose_cmd[@]}" run --rm --no-deps --user 0:0 \
+            --entrypoint /bin/sh ugoite \
+            -c 'find /data -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +'
+    ) || true
   fi
 
   if [ "$cleanup_mode" = "cleanup" ]; then
-    rm -rf "$WORK_ROOT"
+    rm -rf "$WORK_ROOT" || log "Could not fully remove quick-start workdir: $WORK_ROOT"
   else
     log "Retained quick-start workdir: $WORK_ROOT"
   fi
