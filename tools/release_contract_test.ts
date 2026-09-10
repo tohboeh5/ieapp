@@ -87,6 +87,12 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   assertEquals(candidate.includes("checks: read"), true);
   assertEquals(candidate.includes("ci-required"), true);
   assertEquals(candidate.includes("source_ci_required_check_run_id"), true);
+  assertEquals(
+    candidate.includes(
+      "source_ci_required_check_run_id: ${{ steps.resolve.outputs.source_ci_required_check_run_id }}",
+    ),
+    true,
+  );
   assertEquals(candidate.includes("release-grade:"), false);
   assertEquals(candidate.includes("mise run ci:release"), false);
   assertEquals(

@@ -20,6 +20,7 @@ jobs:
       source_sha: ${{ steps.resolve.outputs.source_sha }}
       source_short: ${{ steps.resolve.outputs.source_short }}
       version: ${{ steps.resolve.outputs.version }}
+      source_ci_required_check_run_id: ${{ steps.resolve.outputs.source_ci_required_check_run_id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,7 +48,7 @@ jobs:
             gh api --paginate \
               "repos/${GITHUB_REPOSITORY}/commits/${actual_sha}/check-runs?per_page=100" \
               --jq '.check_runs[] | select(.name == "ci-required" and .status == "completed" and .conclusion == "success") | [.id, .completed_at] | @tsv' \
-              | sort -t $'\t' -k2,2 | tail -n 1
+              | sort -t $'\t' -k2,2r | head -n 1
           )"
           test -n "${ci_required_check}"
           source_ci_required_check_run_id="${ci_required_check%%$'\t'*}"
