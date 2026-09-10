@@ -55,21 +55,21 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import re
-
-          manifest = json.loads(pathlib.Path("target/artifacts/candidate-manifest.json").read_text())
-          if manifest.get("ci_run_id") != os.environ["CANDIDATE_RUN_ID"]:
-              raise SystemExit("candidate manifest ci_run_id does not match the selected run")
-          if not re.fullmatch(r"[0-9a-f]{40}", manifest.get("source_sha", "")):
-              raise SystemExit("candidate source SHA is not immutable")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"version={manifest['version']}\n")
-              output.write(f"source_sha={manifest['source_sha']}\n")
-          PY
+          deno eval '
+          const manifest = JSON.parse(await Deno.readTextFile("target/artifacts/candidate-manifest.json"));
+          const runId = Deno.env.get("CANDIDATE_RUN_ID");
+          if (manifest.ci_run_id !== runId) {
+            throw new Error("candidate manifest ci_run_id does not match the selected run");
+          }
+          if (!/^[0-9a-f]{40}$/.test(manifest.source_sha ?? "")) {
+            throw new Error("candidate source SHA is not immutable");
+          }
+          await Deno.writeTextFile(
+            Deno.env.get("GITHUB_OUTPUT")!,
+            `version=${manifest.version}\nsource_sha=${manifest.source_sha}\n`,
+            { append: true },
+          );
+          '
         env:
           CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
 

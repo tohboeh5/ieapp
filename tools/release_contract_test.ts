@@ -123,6 +123,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   assertEquals(publish.includes("--candidate-id"), false);
   assertEquals(publish.includes("--candidate-run-id"), true);
   assertEquals(publish.includes("github.workflow_sha"), true);
+  assertEquals(publish.includes("python3"), false);
   assertEquals(
     publish.includes("Verify exact candidate assets before publication"),
     true,
