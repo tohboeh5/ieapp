@@ -56,6 +56,30 @@ pub enum SpacePermission {
     ManageMembers,
 }
 
+/// Durable outcome of an operator-local Space create intent.
+///
+/// `Created` is the first successful commit; `Existing` is a retry against
+/// the same fully-committed operator-local Space identity. The strict
+/// [`UgoiteService::create_operator_space`] primitive never returns
+/// `Existing`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SpaceCreateOutcome {
+    Created(Uuid),
+    Existing(Uuid),
+}
+
+impl SpaceCreateOutcome {
+    pub fn space_id(self) -> Uuid {
+        match self {
+            Self::Created(id) | Self::Existing(id) => id,
+        }
+    }
+
+    pub fn created(self) -> bool {
+        matches!(self, Self::Created(_))
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ApplyOperation {
@@ -507,6 +531,10 @@ impl UgoiteService {
 
     /// Creates an operator-local Space with an immutable UUIDv7 directory and
     /// no application principal. A node must explicitly claim it before remote use.
+    ///
+    /// This is the strict primitive: an existing slug always fails with
+    /// `SPACE_ALREADY_EXISTS`, even if it is the same idempotent retry. Use
+    /// [`Self::ensure_operator_space`] for operator-local create-or-return.
     pub async fn create_operator_space(&self, slug: &str) -> Result<Uuid> {
         self.ensure_authoritative_mutation_contract()?;
         validate_storage_id(validate_space_id(slug))?;
@@ -525,6 +553,128 @@ impl UgoiteService {
             )
             .into());
         }
+        self.create_new_operator_space(slug).await
+    }
+
+    /// Operator-local idempotent create-or-return.
+    ///
+    /// The same create intent retried with the same slug converges to the same
+    /// durable Space identity: first call returns `Created(id)`, retries
+    /// against the same fully-committed operator-local Space return
+    /// `Existing(same_id)`.
+    ///
+    /// Fail-closed: a live pending claim, broken bootstrap, slug/immutable-ID
+    /// mismatch, or any account-owned claim never becomes "existing" and
+    /// keeps failing with `SPACE_ALREADY_EXISTS` (or the underlying
+    /// validation error). No fictitious local account model is introduced;
+    /// only the durable outcome is shared with server account-bound retry.
+    pub async fn ensure_operator_space(&self, slug: &str) -> Result<SpaceCreateOutcome> {
+        self.ensure_authoritative_mutation_contract()?;
+        validate_storage_id(validate_space_id(slug))?;
+        crate::iceberg_store::ensure_mutation_admitted(&self.operator, &format!("spaces/{slug}"))
+            .await?;
+        let creation_lock = SPACE_CREATION_SERIALIZER
+            .get_or_init(|| Arc::new(AsyncMutex::new(())))
+            .clone();
+        let _creation_guard = creation_lock.lock().await;
+        // Fail-closed pre-check before recover can mutate anything: an
+        // account-owned claim never becomes operator-local, and a committed
+        // claim whose metadata slug disagrees stays a conflict instead of
+        // being released + recreated under a new identity.
+        if let Some(claim) = self.read_space_slug_claim(slug).await? {
+            if claim.owner_principal_id.is_some() {
+                return Err(AppError::conflict(
+                    ugoite_core::error::ErrorCode::SpaceAlreadyExists,
+                    format!("Space slug already exists: {slug}"),
+                )
+                .into());
+            }
+            if claim.state == "committed" {
+                if let Ok(metadata) = space::get_space_raw(&self.operator, &claim.space_id).await {
+                    if metadata.get("slug").and_then(Value::as_str) != Some(slug) {
+                        return Err(AppError::conflict(
+                            ugoite_core::error::ErrorCode::SpaceAlreadyExists,
+                            format!("Space slug already exists: {slug}"),
+                        )
+                        .into());
+                    }
+                }
+            }
+        }
+        if let Some(space_id) = self.recover_claimed_space(slug).await? {
+            let existing = self
+                .existing_operator_space_id(slug, &space_id)
+                .await?
+                .ok_or_else(|| {
+                    AppError::conflict(
+                        ugoite_core::error::ErrorCode::SpaceAlreadyExists,
+                        format!("Space slug already exists: {slug}"),
+                    )
+                })?;
+            return Ok(SpaceCreateOutcome::Existing(existing));
+        }
+        if let Some(space_id) = self.space_id_by_slug(slug).await? {
+            // No recoverable claim, but metadata already carries this slug.
+            // Only a committed owner-less claim for the same identity may
+            // converge to Existing; anything else (absent/released/pending
+            // claim, owner, or ID mismatch) stays fail-closed so a cleaned
+            // or foreign claim can never resurrect as operator-local.
+            let claim = self.read_space_slug_claim(slug).await?;
+            let committed_match = matches!(&claim,
+                Some(claim) if claim.state == "committed"
+                    && claim.owner_principal_id.is_none()
+                    && claim.space_id == space_id);
+            if !committed_match {
+                return Err(AppError::conflict(
+                    ugoite_core::error::ErrorCode::SpaceAlreadyExists,
+                    format!("Space slug already exists: {slug}"),
+                )
+                .into());
+            }
+            let existing = self
+                .existing_operator_space_id(slug, &space_id)
+                .await?
+                .ok_or_else(|| {
+                    AppError::conflict(
+                        ugoite_core::error::ErrorCode::SpaceAlreadyExists,
+                        format!("Space slug already exists: {slug}"),
+                    )
+                })?;
+            return Ok(SpaceCreateOutcome::Existing(existing));
+        }
+        Ok(SpaceCreateOutcome::Created(
+            self.create_new_operator_space(slug).await?,
+        ))
+    }
+
+    /// Validates that `space_id` is the fully-committed operator-local Space
+    /// for `slug`. Returns `None` for any state that must stay fail-closed
+    /// (non-UUID legacy IDs, slug mismatch, incomplete bootstrap, or
+    /// account-owned claims) so callers keep returning a conflict.
+    async fn existing_operator_space_id(&self, slug: &str, space_id: &str) -> Result<Option<Uuid>> {
+        let Ok(space_uid) = Uuid::parse_str(space_id) else {
+            return Ok(None);
+        };
+        if space_uid.get_version() != Some(uuid::Version::SortRand) {
+            return Ok(None);
+        }
+        if let Some(claim) = self.read_space_slug_claim(slug).await? {
+            if claim.owner_principal_id.is_some() {
+                return Ok(None);
+            }
+            if claim.space_id != space_id && claim.state != "released" {
+                return Ok(None);
+            }
+        }
+        let metadata = space::get_space_raw(&self.operator, space_id).await?;
+        if metadata.get("slug").and_then(Value::as_str) != Some(slug) {
+            return Ok(None);
+        }
+        space::validate_complete_bootstrap(&self.operator, space_id).await?;
+        Ok(Some(space_uid))
+    }
+
+    async fn create_new_operator_space(&self, slug: &str) -> Result<Uuid> {
         let space_id = Uuid::now_v7();
         let claim = self.claim_space_slug(slug, &space_id.to_string()).await?;
         let lease = self.start_space_slug_claim_heartbeat(&claim);
@@ -4675,6 +4825,121 @@ mod tests {
             .await
             .expect_err("duplicate immutable Space UIDs must fail closed");
         assert!(error.to_string().contains("duplicate immutable space_uid"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn ensure_operator_space_is_idempotent_for_same_slug() -> Result<()> {
+        let service = UgoiteService::new("memory://ensure-operator-space")?;
+        let first = service.ensure_operator_space("retry-space").await?;
+        assert!(first.created());
+        let first_id = first.space_id();
+        let second = service.ensure_operator_space("retry-space").await?;
+        assert!(!second.created());
+        assert_eq!(second.space_id(), first_id);
+        // Strict primitive stays fail-closed on retry.
+        let error = service
+            .create_operator_space("retry-space")
+            .await
+            .expect_err("strict create must still conflict");
+        assert_eq!(
+            error
+                .downcast_ref::<ugoite_core::error::AppError>()
+                .expect("typed conflict")
+                .code_str(),
+            "SPACE_ALREADY_EXISTS"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn ensure_operator_space_stays_fail_closed() -> Result<()> {
+        // Live pending claim: another writer may still be bootstrapping.
+        let service = UgoiteService::new("memory://ensure-fail-closed-pending")?;
+        service
+            .claim_space_slug("pending-space", &Uuid::now_v7().to_string())
+            .await?;
+        let error = service
+            .ensure_operator_space("pending-space")
+            .await
+            .expect_err("live pending claim must conflict");
+        assert_eq!(
+            error
+                .downcast_ref::<ugoite_core::error::AppError>()
+                .expect("typed conflict")
+                .code_str(),
+            "SPACE_ALREADY_EXISTS"
+        );
+
+        // Account-owned claim is never operator-local.
+        let service = UgoiteService::new("memory://ensure-fail-closed-owner")?;
+        service
+            .claim_space_slug_with_owner_and_name(
+                "owned-space",
+                &Uuid::now_v7().to_string(),
+                Some((Uuid::now_v7(), "Owner".to_string())),
+                "owned-space",
+            )
+            .await?;
+        let error = service
+            .ensure_operator_space("owned-space")
+            .await
+            .expect_err("account-owned claim must conflict without mutating state");
+        assert_eq!(
+            error
+                .downcast_ref::<ugoite_core::error::AppError>()
+                .expect("typed conflict")
+                .code_str(),
+            "SPACE_ALREADY_EXISTS"
+        );
+
+        // Slug/immutable-ID mismatch stays a conflict.
+        let service = UgoiteService::new("memory://ensure-fail-closed-mismatch")?;
+        let space_uid = service.create_operator_space("actual-slug").await?;
+        service
+            .claim_space_slug("different-slug", &space_uid.to_string())
+            .await?;
+        let error = service
+            .ensure_operator_space("different-slug")
+            .await
+            .expect_err("mismatched claim must conflict");
+        assert_eq!(
+            error
+                .downcast_ref::<ugoite_core::error::AppError>()
+                .expect("typed conflict")
+                .code_str(),
+            "SPACE_ALREADY_EXISTS"
+        );
+
+        // Broken bootstrap surfaces the validation error, never Existing.
+        let service = UgoiteService::new("memory://ensure-fail-closed-broken")?;
+        let space_uid = service
+            .ensure_operator_space("broken-space")
+            .await?
+            .space_id();
+        service
+            .operator
+            .delete(&format!("spaces/{space_uid}/settings.json"))
+            .await?;
+        service
+            .ensure_operator_space("broken-space")
+            .await
+            .expect_err("broken bootstrap must not converge to Existing");
+
+        // Legacy non-UUID directories are not operator idempotency targets.
+        let service = UgoiteService::new("memory://ensure-fail-closed-legacy")?;
+        space::create_space(service.operator(), "legacy-space", service.root_uri()).await?;
+        let error = service
+            .ensure_operator_space("legacy-space")
+            .await
+            .expect_err("legacy ID must conflict");
+        assert_eq!(
+            error
+                .downcast_ref::<ugoite_core::error::AppError>()
+                .expect("typed conflict")
+                .code_str(),
+            "SPACE_ALREADY_EXISTS"
+        );
         Ok(())
     }
 }

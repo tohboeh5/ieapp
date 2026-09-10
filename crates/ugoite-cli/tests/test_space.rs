@@ -132,7 +132,8 @@ fn test_create_space_s3_unimplemented() {
     );
 }
 
-/// REQ-STO-005: Prevent duplicate space creation - returns error for existing space.
+/// REQ-STO-005: Core-mode Space create is idempotent - retrying the same slug
+/// converges to the same durable Space identity instead of failing.
 #[test]
 fn test_create_space_idempotency() {
     let dir = tempfile::tempdir().unwrap();
@@ -140,15 +141,24 @@ fn test_create_space_idempotency() {
     let space_path = dir.path().join("spaces").join("idempotent-space");
 
     // Create space first time
-    Command::new(ugoite_bin())
+    let output1 = Command::new(ugoite_bin())
         .arg("space")
         .arg("create")
         .arg(&space_path)
         .env("UGOITE_CLI_CONFIG_PATH", &config_path)
         .output()
         .expect("failed to execute");
+    assert!(
+        output1.status.success(),
+        "First create-space should succeed: {}",
+        String::from_utf8_lossy(&output1.stderr)
+    );
+    let first: serde_json::Value =
+        serde_json::from_slice(&output1.stdout).expect("first create prints JSON");
+    assert_eq!(first["created"], serde_json::json!(true));
+    assert_eq!(first["slug"], serde_json::json!("idempotent-space"));
 
-    // Second creation should fail with "already exists" error
+    // Second creation with the same slug converges to the same Space.
     let output2 = Command::new(ugoite_bin())
         .arg("space")
         .arg("create")
@@ -158,14 +168,15 @@ fn test_create_space_idempotency() {
         .expect("failed to execute");
 
     assert!(
-        !output2.status.success(),
-        "Second create-space should fail for duplicate space"
+        output2.status.success(),
+        "Second create-space should converge to the existing Space: {}",
+        String::from_utf8_lossy(&output2.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output2.stderr);
-    assert!(
-        stderr.contains("already exists"),
-        "Expected 'already exists' error, got: {stderr}"
-    );
+    let second: serde_json::Value =
+        serde_json::from_slice(&output2.stdout).expect("retry prints JSON");
+    assert_eq!(second["created"], serde_json::json!(false));
+    assert_eq!(second["slug"], serde_json::json!("idempotent-space"));
+    assert_eq!(second["id"], first["id"]);
 }
 
 /// REQ-API-009: Sample space can be created with sample data.

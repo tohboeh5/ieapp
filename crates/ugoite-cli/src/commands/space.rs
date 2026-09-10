@@ -223,8 +223,10 @@ pub async fn create_space_cmd(
     }
     let root_path = require_local_root(root_path, command_name)?;
     let service = UgoiteService::new_without_background_refresh(root_path)?;
-    let immutable_id = service.create_operator_space(space_id).await?;
-    print_json(&serde_json::json!({"created": true, "id": immutable_id, "slug": space_id}));
+    let outcome = service.ensure_operator_space(space_id).await?;
+    print_json(
+        &serde_json::json!({"created": outcome.created(), "id": outcome.space_id(), "slug": space_id}),
+    );
     Ok(())
 }
 
@@ -247,9 +249,9 @@ pub async fn run(cmd: SpaceCmd) -> Result<()> {
                 return Ok(());
             }
             let service = UgoiteService::new_without_background_refresh(&root)?;
-            let immutable_id = service.create_operator_space(&requested_slug).await?;
+            let outcome = service.ensure_operator_space(&requested_slug).await?;
             print_json(
-                &serde_json::json!({"created": true, "id": immutable_id, "slug": requested_slug}),
+                &serde_json::json!({"created": outcome.created(), "id": outcome.space_id(), "slug": requested_slug}),
             );
         }
         SpaceSubCmd::List { root_path } => {
