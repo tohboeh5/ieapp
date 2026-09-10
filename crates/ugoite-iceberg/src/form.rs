@@ -21,6 +21,7 @@ fn invalid_form_input(message: impl Into<String>) -> anyhow::Error {
 }
 
 pub async fn list_forms(op: &Operator, ws_path: &str) -> Result<Vec<Value>> {
+    crate::space::ensure_existing_space_version(op, ws_path).await?;
     let mut forms = Vec::new();
     for form_name in list_form_names(op, ws_path).await? {
         if let Ok(value) = read_form_definition(op, ws_path, &form_name).await {

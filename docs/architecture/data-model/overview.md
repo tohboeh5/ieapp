@@ -48,10 +48,12 @@ are deliberately not specified.
 
 ## Spaces
 
-`meta.json` stores the Space identity and integrity key material; it does not
-store a physical storage descriptor. A Node-local binding, when configured, is
-kept outside the `spaces/{space_id}` prefix and is merged only into the runtime
-Space view. `settings.json` is created with `default_form: Entry`; portable
+`meta.json` stores the Space identity, the durable `space_version: "0.1"`
+compatibility identity, and integrity key material; it does not store a
+physical storage descriptor. Product version, Space compatibility version, and
+internal physical representation are independent. A Node-local binding, when
+configured, is kept outside the `spaces/{space_id}` prefix and is merged only
+into the runtime Space view. `settings.json` is created with `default_form: Entry`; portable
 membership, principal, policy, and authorization-audit state is stored in
 `security/principals.json`. Legacy membership-shaped settings are unsupported,
 and public Space patching cannot modify membership-managed keys.

@@ -56,13 +56,13 @@ schemas:
         head_fence: {type: string}
         checksum: {type: string}
   space_meta:
-    description: Raw Space metadata written at creation.
+    description: Raw Space metadata written at creation. space_version is the durable Space compatibility identity and is independent from the Product version and physical storage representation.
     path: spaces/{id}/meta.json
     schema:
       type: object
       additionalProperties: false
       required:
-      - schema_version
+      - space_version
       - space_id
       - space_uid
       - slug
@@ -73,9 +73,10 @@ schemas:
       - hmac_key
       - last_rotation
       properties:
-        schema_version:
-          type: integer
-          const: 3
+        space_version:
+          type: string
+          const: "0.1"
+          description: Durable Space compatibility identity.
         space_id:
           type: string
         space_uid:

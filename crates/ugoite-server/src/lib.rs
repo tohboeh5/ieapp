@@ -7748,6 +7748,7 @@ async fn create_space(
             "id": space_uid,
             "slug": metadata["slug"],
             "space_uid": space_uid,
+            "space_version": metadata["space_version"],
             "name": metadata["name"],
             "path": state.workspace(&space_uid.to_string())
         })),

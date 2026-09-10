@@ -50,8 +50,8 @@ pub async fn native_mutation_workspace(
     operator: &Operator,
     workspace_path: &str,
 ) -> Result<crate::IcebergWorkspace> {
-    let store = mutation_store(operator, workspace_path).await?;
     let space_id = stable_space_id(operator, workspace_path).await?;
+    let store = mutation_store(operator, workspace_path).await?;
     crate::IcebergWorkspace::open_space(store, space_id, crate::WriteConfig::default()).await
 }
 
@@ -59,6 +59,7 @@ pub async fn native_mutation_workspace(
 /// This is used by mutation helpers that write an object before opening an
 /// Iceberg workspace, such as asset upload and authorization bootstrap.
 pub async fn ensure_mutation_admitted(operator: &Operator, workspace_path: &str) -> Result<()> {
+    crate::space::ensure_existing_space_version(operator, workspace_path).await?;
     mutation_store(operator, workspace_path)
         .await
         .map(|_| ())
