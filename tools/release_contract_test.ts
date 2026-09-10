@@ -290,8 +290,10 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
   assertEquals(success.success, true, new TextDecoder().decode(success.stderr));
   const wrongRun = await verify("different-run");
   assertEquals(wrongRun.success, false);
+  const wrongRunOutput = new TextDecoder().decode(wrongRun.stderr) +
+    new TextDecoder().decode(wrongRun.stdout);
   assertEquals(
-    new TextDecoder().decode(wrongRun.stderr).includes(
+    wrongRunOutput.includes(
       "does not match requested different-run",
     ),
     true,
