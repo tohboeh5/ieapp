@@ -270,7 +270,9 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
   await Deno.writeFile(manifestPath, manifestBytes);
-  const verify = async (): Promise<Deno.CommandOutput> =>
+  const verify = async (
+    expectedRunId = "test-run",
+  ): Promise<Deno.CommandOutput> =>
     await new Deno.Command(Deno.execPath(), {
       args: [
         "run",
@@ -280,12 +282,20 @@ Deno.test("REQ-OPS-044: candidate ID is the exact manifest digest and tampering 
         "--candidate",
         manifestPath,
       ],
-      env: { UGOITE_CANDIDATE_RUN_ID: "test-run" },
+      env: { UGOITE_CANDIDATE_RUN_ID: expectedRunId },
       stdout: "piped",
       stderr: "piped",
     }).output();
   const success = await verify();
   assertEquals(success.success, true, new TextDecoder().decode(success.stderr));
+  const wrongRun = await verify("different-run");
+  assertEquals(wrongRun.success, false);
+  assertEquals(
+    new TextDecoder().decode(wrongRun.stderr).includes(
+      "does not match requested different-run",
+    ),
+    true,
+  );
   await Deno.writeTextFile(
     `${candidateRoot}/npm/ugoite-ugoite-0.1.0.tgz`,
     "tampered",
