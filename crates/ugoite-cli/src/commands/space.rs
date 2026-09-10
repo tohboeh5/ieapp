@@ -4,6 +4,7 @@ use crate::config::{
     EndpointConfig, Format,
 };
 use crate::http;
+use crate::step_up;
 use anyhow::{bail, Result};
 use clap::{Args, Subcommand};
 use ugoite_iceberg::sample_data::SampleDataOptions;
@@ -211,11 +212,15 @@ pub async fn create_space_cmd(
 ) -> Result<()> {
     let config = load_config();
     if let Some(base) = validated_base_url(&config)? {
-        let result = http::execute(
+        // Remote Space creation may require fresh human presence; the
+        // step-up handoff (browser approval, one automatic retry) keeps the
+        // ceremony policy intact instead of weakening it.
+        let result = step_up::execute_with_step_up(
             &base,
             "space.create",
             serde_json::json!({}),
             Some(serde_json::json!({"slug": space_id, "name": space_id})),
+            None,
         )
         .await?;
         print_json(&result);
@@ -238,11 +243,12 @@ pub async fn run(cmd: SpaceCmd) -> Result<()> {
             let requested_slug = parse_space_path(&space_path).1;
             let (root, _) = resolve_space_reference(&config, &space_path, "space create")?;
             if let Some(base) = validated_base_url(&config)? {
-                let result = http::execute(
+                let result = step_up::execute_with_step_up(
                     &base,
                     "space.create",
                     serde_json::json!({}),
                     Some(serde_json::json!({"slug": requested_slug, "name": requested_slug})),
+                    None,
                 )
                 .await?;
                 print_json(&result);
@@ -314,11 +320,12 @@ pub async fn run(cmd: SpaceCmd) -> Result<()> {
                 patch.insert("settings".to_string(), v);
             }
             if let Some(base) = validated_base_url(&config)? {
-                let result = http::execute(
+                let result = step_up::execute_with_step_up(
                     &base,
                     "space.patch",
                     serde_json::json!({"space_id": space_id}),
                     Some(serde_json::Value::Object(patch)),
+                    Some(space_id.as_str()),
                 )
                 .await?;
                 print_json(&result);

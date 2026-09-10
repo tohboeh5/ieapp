@@ -716,6 +716,42 @@ pub struct DeviceAuthorizationRequest {
     pub polling_interval_seconds: u64,
 }
 
+/// Lifecycle of one CLI→browser step-up challenge.
+///
+/// A challenge never grants authority by itself: it records that the bound
+/// human approved one bound mutation intent with a fresh phishing-resistant
+/// ceremony. Consuming it replaces only the recent-Passkey freshness check
+/// for that single intent; all authorization is re-evaluated at consume
+/// time. This is deliberately separate from human-approval tokens, which
+/// authorize dangerous operations rather than proving human presence.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepUpStatus {
+    Pending,
+    Approved,
+}
+
+/// Short-lived, single-use step-up intent bound to one account, one device
+/// credential, one operation, and one mutation target. The Space mutation
+/// permission itself (Share, owner, …) is always re-evaluated at consume
+/// time, so the challenge binds identity + intent, never authority.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct StepUpChallenge {
+    pub challenge_id: Uuid,
+    pub account_id: Uuid,
+    /// Device or agent credential that started the challenge. A different
+    /// credential, even for the same account, cannot consume it.
+    pub credential_id: Option<Uuid>,
+    pub operation: String,
+    #[serde(default)]
+    pub space_id: Option<String>,
+    pub status: StepUpStatus,
+    pub created_at: String,
+    pub expires_at: String,
+    pub approved_at: Option<String>,
+    pub consumed_at: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AuthorizationCodeGrant {
     pub code_hash: String,
@@ -862,6 +898,8 @@ pub struct NodeState {
     pub device_credentials: BTreeMap<Uuid, DeviceCredential>,
     #[serde(default)]
     pub device_authorizations: BTreeMap<String, DeviceAuthorizationRequest>,
+    #[serde(default)]
+    pub step_up_challenges: BTreeMap<Uuid, StepUpChallenge>,
     #[serde(default)]
     pub authorization_codes: BTreeMap<String, AuthorizationCodeGrant>,
     #[serde(default)]
@@ -2214,6 +2252,7 @@ impl NodeIdentityService {
             binding_revision: 0,
             device_credentials: BTreeMap::new(),
             device_authorizations: BTreeMap::new(),
+            step_up_challenges: BTreeMap::new(),
             authorization_codes: BTreeMap::new(),
             agent_credentials: BTreeMap::new(),
             refresh_credentials: BTreeMap::new(),
@@ -5982,6 +6021,149 @@ impl NodeIdentityService {
             serde_json::json!({"issuer": state.issuer, "resource": request.resource});
         self.write_state(&state).await?;
         Ok((credential, refresh, refresh_token, token_context))
+    }
+
+    /// Starts a short-lived CLI→browser step-up challenge for one bound
+    /// mutation intent. The challenge is pending until the bound account
+    /// approves it from a session with a recent phishing-resistant ceremony.
+    /// Consuming it replaces only the freshness check for that single intent.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn start_step_up_challenge(
+        &self,
+        account_id: Uuid,
+        credential_id: Option<Uuid>,
+        operation: &str,
+        space_id: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let _guard = self.state_lock.lock().await;
+        let mut state = self.read_state().await?;
+        state
+            .accounts
+            .get(&account_id)
+            .filter(|account| matches!(account.status, AccountStatus::Active))
+            .ok_or_else(|| anyhow!("step-up account is not active"))?;
+        // Bound the pending set: expired challenges can never be consumed.
+        state.step_up_challenges.retain(|_, challenge| {
+            parse_timestamp(&challenge.expires_at).is_ok_and(|ts| ts > Utc::now())
+        });
+        let challenge_id = Uuid::now_v7();
+        let now = Utc::now();
+        let expires_at = timestamp(now + Duration::minutes(10));
+        state.step_up_challenges.insert(
+            challenge_id,
+            StepUpChallenge {
+                challenge_id,
+                account_id,
+                credential_id,
+                operation: operation.to_string(),
+                space_id: space_id.map(str::to_string),
+                status: StepUpStatus::Pending,
+                created_at: timestamp(now),
+                expires_at: expires_at.clone(),
+                approved_at: None,
+                consumed_at: None,
+            },
+        );
+        self.write_state(&state).await?;
+        Ok(serde_json::json!({
+            "challenge_id": challenge_id,
+            "verification_uri": format!("{}/step-up?challenge={challenge_id}", self.public_origin.trim_end_matches('/')),
+            "verification_uri_complete": format!("{}/step-up?challenge={challenge_id}", self.public_origin.trim_end_matches('/')),
+            "expires_in": 600,
+            "interval": 5,
+            "expires_at": expires_at,
+        }))
+    }
+
+    /// Reports a step-up challenge without mutating it. Only the bound
+    /// account may observe its own challenge.
+    pub async fn step_up_challenge_status(
+        &self,
+        account_id: Uuid,
+        challenge_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let state = self.read_state().await?;
+        let challenge = state
+            .step_up_challenges
+            .get(&challenge_id)
+            .filter(|challenge| challenge.account_id == account_id)
+            .ok_or_else(|| anyhow!("unknown step-up challenge"))?;
+        if challenge.consumed_at.is_some() {
+            return Ok(serde_json::json!({"status": "consumed"}));
+        }
+        if parse_timestamp(&challenge.expires_at).is_ok_and(|ts| ts <= Utc::now()) {
+            return Ok(serde_json::json!({"status": "expired"}));
+        }
+        Ok(serde_json::json!({
+            "status": match challenge.status {
+                StepUpStatus::Pending => "pending",
+                StepUpStatus::Approved => "approved",
+            },
+            "expires_at": challenge.expires_at,
+        }))
+    }
+
+    /// Marks a pending challenge approved after the bound account completed
+    /// a fresh phishing-resistant ceremony. Callers must enforce the
+    /// recent-Passkey session requirement; approval alone grants nothing.
+    pub async fn approve_step_up_challenge(
+        &self,
+        account_id: Uuid,
+        challenge_id: Uuid,
+    ) -> Result<()> {
+        let _guard = self.state_lock.lock().await;
+        let mut state = self.read_state().await?;
+        let challenge = state
+            .step_up_challenges
+            .get_mut(&challenge_id)
+            .filter(|challenge| challenge.account_id == account_id)
+            .ok_or_else(|| anyhow!("unknown step-up challenge"))?;
+        validate_expiry(&challenge.expires_at, "step-up challenge")?;
+        if challenge.consumed_at.is_some() {
+            bail!("step-up challenge was already consumed");
+        }
+        if challenge.status != StepUpStatus::Pending {
+            bail!("step-up challenge is not pending");
+        }
+        challenge.status = StepUpStatus::Approved;
+        challenge.approved_at = Some(timestamp(Utc::now()));
+        self.write_state(&state).await?;
+        Ok(())
+    }
+
+    /// Consumes one approved challenge for the exact bound intent.
+    /// Single-use (removed), short-TTL, and non-transferable across
+    /// accounts, credentials, operations, or Spaces. Authorization itself
+    /// is always re-evaluated by the caller after a successful consume.
+    pub async fn consume_step_up_challenge(
+        &self,
+        account_id: Uuid,
+        credential_id: Option<Uuid>,
+        challenge_id: Uuid,
+        operation: &str,
+        space_id: Option<&str>,
+    ) -> Result<()> {
+        let _guard = self.state_lock.lock().await;
+        let mut state = self.read_state().await?;
+        let challenge = state
+            .step_up_challenges
+            .remove(&challenge_id)
+            .ok_or_else(|| anyhow!("unknown or consumed step-up challenge"))?;
+        validate_expiry(&challenge.expires_at, "step-up challenge")?;
+        if challenge.account_id != account_id {
+            bail!("step-up challenge belongs to a different account");
+        }
+        if challenge.credential_id != credential_id {
+            bail!("step-up challenge belongs to a different credential");
+        }
+        if challenge.status != StepUpStatus::Approved {
+            bail!("step-up challenge is not approved");
+        }
+        if challenge.operation != operation || challenge.space_id.as_deref() != space_id {
+            bail!("step-up challenge does not match this mutation");
+        }
+        self.write_state(&state).await?;
+        Ok(())
     }
 
     pub async fn device_credential(&self, credential_id: Uuid) -> Result<DeviceCredential> {
@@ -10680,5 +10862,171 @@ mod tests {
         assert!(!node_write_was_committed_with_ambiguous_response(&anyhow!(
             "node control write outcome unknown: timeout"
         )));
+    }
+
+    async fn step_up_test_account(service: &NodeIdentityService) -> Result<(Uuid, Uuid)> {
+        service.bootstrap_if_needed().await?;
+        let account_id = Uuid::now_v7();
+        let credential_id = Uuid::now_v7();
+        let mut state = service.read_state().await?;
+        let now = timestamp(Utc::now());
+        state.accounts.insert(
+            account_id,
+            HumanAccount {
+                account_id,
+                display_name: "Step-up test".to_string(),
+                status: AccountStatus::Active,
+                created_at: now,
+                node_roles: std::collections::BTreeSet::new(),
+                credential_generation: 0,
+            },
+        );
+        service.write_state(&state).await?;
+        Ok((account_id, credential_id))
+    }
+
+    fn step_up_challenge_id(started: &serde_json::Value) -> Uuid {
+        started["challenge_id"]
+            .as_str()
+            .expect("challenge id")
+            .parse()
+            .expect("challenge UUID")
+    }
+
+    #[tokio::test]
+    async fn step_up_challenge_lifecycle_is_single_use() -> Result<()> {
+        let service = NodeIdentityService::new_for_tests("localhost", "http://localhost:8000")?;
+        let (account_id, credential_id) = step_up_test_account(&service).await?;
+        let started = service
+            .start_step_up_challenge(account_id, Some(credential_id), "space.create", None)
+            .await?;
+        let challenge_id = step_up_challenge_id(&started);
+        assert!(started["verification_uri"]
+            .as_str()
+            .expect("uri")
+            .contains(&challenge_id.to_string()));
+        assert_eq!(
+            service
+                .step_up_challenge_status(account_id, challenge_id)
+                .await?["status"],
+            serde_json::json!("pending")
+        );
+        // Consuming before browser approval fails without consuming.
+        assert!(service
+            .consume_step_up_challenge(
+                account_id,
+                Some(credential_id),
+                challenge_id,
+                "space.create",
+                None,
+            )
+            .await
+            .is_err());
+        service
+            .approve_step_up_challenge(account_id, challenge_id)
+            .await?;
+        assert_eq!(
+            service
+                .step_up_challenge_status(account_id, challenge_id)
+                .await?["status"],
+            serde_json::json!("approved")
+        );
+        service
+            .consume_step_up_challenge(
+                account_id,
+                Some(credential_id),
+                challenge_id,
+                "space.create",
+                None,
+            )
+            .await?;
+        // Single-use: the second consume fails.
+        assert!(service
+            .consume_step_up_challenge(
+                account_id,
+                Some(credential_id),
+                challenge_id,
+                "space.create",
+                None,
+            )
+            .await
+            .is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn step_up_challenge_is_bound_and_expiring() -> Result<()> {
+        let service = NodeIdentityService::new_for_tests("localhost", "http://localhost:8000")?;
+        let (account_id, credential_id) = step_up_test_account(&service).await?;
+        let other_account = Uuid::now_v7();
+        let other_credential = Uuid::now_v7();
+        let started = service
+            .start_step_up_challenge(
+                account_id,
+                Some(credential_id),
+                "space.patch",
+                Some("space-1"),
+            )
+            .await?;
+        let challenge_id = step_up_challenge_id(&started);
+        // Another account cannot observe, approve, or consume.
+        assert!(service
+            .step_up_challenge_status(other_account, challenge_id)
+            .await
+            .is_err());
+        assert!(service
+            .approve_step_up_challenge(other_account, challenge_id)
+            .await
+            .is_err());
+        service
+            .approve_step_up_challenge(account_id, challenge_id)
+            .await?;
+        for (credential, operation, space) in [
+            (Some(other_credential), "space.patch", Some("space-1")),
+            (Some(credential_id), "space.create", Some("space-1")),
+            (Some(credential_id), "space.patch", Some("space-2")),
+            (None, "space.patch", Some("space-1")),
+        ] {
+            assert!(service
+                .consume_step_up_challenge(account_id, credential, challenge_id, operation, space,)
+                .await
+                .is_err());
+        }
+        // Wrong bindings do not consume: the exact intent still works.
+        service
+            .consume_step_up_challenge(
+                account_id,
+                Some(credential_id),
+                challenge_id,
+                "space.patch",
+                Some("space-1"),
+            )
+            .await?;
+        // Expired challenges report expired and cannot be approved.
+        let stale = service
+            .start_step_up_challenge(account_id, None, "space.create", None)
+            .await?;
+        let stale_id = step_up_challenge_id(&stale);
+        let mut state = service.read_state().await?;
+        if let Some(challenge) = state.step_up_challenges.get_mut(&stale_id) {
+            challenge.expires_at = timestamp(Utc::now() - chrono::Duration::minutes(1));
+        }
+        service.write_state(&state).await?;
+        assert_eq!(
+            service
+                .step_up_challenge_status(account_id, stale_id)
+                .await?["status"],
+            serde_json::json!("expired")
+        );
+        assert!(service
+            .approve_step_up_challenge(account_id, stale_id)
+            .await
+            .is_err());
+        // Inactive accounts cannot start challenges.
+        assert!(service
+            .start_step_up_challenge(other_account, None, "space.create", None)
+            .await
+            .is_err());
+        Ok(())
     }
 }

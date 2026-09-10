@@ -838,6 +838,24 @@ fn openapi_does_not_publish_removed_credentials() {
 }
 
 #[test]
+fn openapi_publishes_step_up_challenge_surfaces() {
+    let snapshot = ugoite_server::openapi_snapshot();
+    for path in [
+        "/auth/step-up/start",
+        "/auth/step-up/status",
+        "/auth/step-up/approve",
+    ] {
+        assert!(snapshot["paths"].get(path).is_some(), "missing {path}");
+    }
+    assert!(snapshot["paths"]["/auth/step-up/start"]["post"]
+        .get("requestBody")
+        .is_some());
+    assert!(snapshot["paths"]["/auth/step-up/approve"]["post"]
+        .get("requestBody")
+        .is_some());
+}
+
+#[test]
 fn openapi_publishes_oidc_account_linking_and_bootstrap_surfaces() {
     let snapshot = ugoite_server::openapi_snapshot();
     for path in [

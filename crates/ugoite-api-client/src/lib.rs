@@ -21,6 +21,9 @@ pub const SUPPORTED_OPERATIONS: &[&str] = &[
     "auth.accept_invitation",
     "auth.list_sessions",
     "auth.revoke_session",
+    "auth.step_up.start",
+    "auth.step_up.status",
+    "auth.step_up.approve",
     "auth.recovery.owner_start",
     "auth.recovery.owner_finish",
     "preferences.get",
@@ -284,6 +287,24 @@ pub fn prepare_request(
                     "sessions".into(),
                     required_string(operation, args, "session_id")?,
                 ],
+                vec![],
+            ),
+            "auth.step_up.start" => (
+                OperationSpec::json(HttpMethod::Post, "Failed to start step-up challenge"),
+                vec!["auth".into(), "step-up".into(), "start".into()],
+                vec![],
+            ),
+            "auth.step_up.status" => (
+                OperationSpec::get("Failed to check step-up challenge"),
+                vec!["auth".into(), "step-up".into(), "status".into()],
+                vec![(
+                    "challenge_id".into(),
+                    required_string(operation, args, "challenge_id")?,
+                )],
+            ),
+            "auth.step_up.approve" => (
+                OperationSpec::json(HttpMethod::Post, "Failed to approve step-up challenge"),
+                vec!["auth".into(), "step-up".into(), "approve".into()],
                 vec![],
             ),
             "auth.recovery.owner_start" => (
@@ -1018,6 +1039,38 @@ pub fn prepare_request(
         }
     }
 
+    // Browser-approved step-up challenges are distinct from human-approval
+    // tokens: they prove fresh human presence for one bound Space mutation.
+    if matches!(
+        operation,
+        "space.create"
+            | "space.patch"
+            | "space.members.invite"
+            | "space.members.update_role"
+            | "space.members.revoke"
+            | "pin.create"
+            | "pin.delete"
+    ) {
+        if let Some(value) = args.get("step_up").filter(|value| !value.is_null()) {
+            let value = value.as_str().ok_or_else(|| {
+                ApiProtocolError::invalid_arguments(
+                    operation,
+                    "argument `step_up` must be a string when provided",
+                )
+            })?;
+            if value.trim().is_empty() {
+                return Err(ApiProtocolError::invalid_arguments(
+                    operation,
+                    "argument `step_up` must not be empty",
+                ));
+            }
+            headers.push(Header {
+                name: "x-ugoite-step-up".to_string(),
+                value: value.to_string(),
+            });
+        }
+    }
+
     Ok(PreparedRequest {
         operation: operation.to_string(),
         method: spec.method,
@@ -1225,6 +1278,21 @@ fn operation_spec(operation: &str) -> Option<OperationSpec> {
             HttpMethod::Delete,
             "Failed to revoke browser session",
             RequestBodyKind::None,
+        ),
+        "auth.step_up.start" => (
+            HttpMethod::Post,
+            "Failed to start step-up challenge",
+            RequestBodyKind::Json,
+        ),
+        "auth.step_up.status" => (
+            HttpMethod::Get,
+            "Failed to check step-up challenge",
+            RequestBodyKind::None,
+        ),
+        "auth.step_up.approve" => (
+            HttpMethod::Post,
+            "Failed to approve step-up challenge",
+            RequestBodyKind::Json,
         ),
         "auth.recovery.owner_start" => (
             HttpMethod::Post,
@@ -1858,6 +1926,82 @@ mod tests {
     }
 
     #[test]
+    fn step_up_operations_encode_challenge_lifecycle() {
+        let start = prepare_request(
+            "auth.step_up.start",
+            &json!({}),
+            Some(&json!({"operation": "space.create"})),
+        )
+        .expect("step-up start request");
+        assert_eq!(start.path, "/auth/step-up/start");
+        assert_eq!(start.body_kind, RequestBodyKind::Json);
+
+        let status = prepare_request(
+            "auth.step_up.status",
+            &json!({"challenge_id": "01900000-0000-7000-8000-000000000003"}),
+            None,
+        )
+        .expect("step-up status request");
+        assert_eq!(
+            status.path,
+            "/auth/step-up/status?challenge_id=01900000-0000-7000-8000-000000000003"
+        );
+
+        let approve = prepare_request(
+            "auth.step_up.approve",
+            &json!({}),
+            Some(&json!({"challenge_id": "01900000-0000-7000-8000-000000000003"})),
+        )
+        .expect("step-up approve request");
+        assert_eq!(approve.path, "/auth/step-up/approve");
+    }
+
+    #[test]
+    fn space_mutations_put_step_up_challenge_in_a_header_only() {
+        let request = prepare_request(
+            "space.patch",
+            &json!({"space_id": "demo", "step_up": "challenge-1"}),
+            Some(&json!({"name": "renamed"})),
+        )
+        .expect("step-up-bound patch request");
+        assert_eq!(request.path, "/spaces/demo");
+        assert!(request
+            .headers
+            .iter()
+            .any(|header| { header.name == "x-ugoite-step-up" && header.value == "challenge-1" }));
+        assert!(!request
+            .headers
+            .iter()
+            .any(|header| { header.name == "x-ugoite-human-approval" }));
+    }
+
+    #[test]
+    fn step_up_errors_preserve_stable_codes_in_payload() {
+        let error = decode_response(
+            "space.create",
+            ApiResponse {
+                status: 410,
+                status_text: "Gone".into(),
+                headers: vec![],
+                body: json!({
+                    "code": "STEP_UP_EXPIRED",
+                    "message": "step-up challenge has expired"
+                })
+                .to_string(),
+            },
+        )
+        .expect_err("must fail");
+        assert_eq!(
+            error.payload.as_deref(),
+            Some(&json!({
+                "code": "STEP_UP_EXPIRED",
+                "message": "step-up challenge has expired"
+            })),
+            "stable step-up codes must survive decode"
+        );
+    }
+
+    #[test]
     fn space_audit_encodes_viewer_filters_and_paging() {
         let request = prepare_request(
             "space.audit",
@@ -2193,6 +2337,12 @@ mod tests {
             arguments.insert(
                 "session_id".into(),
                 json!("01900000-0000-7000-8000-000000000002"),
+            );
+        }
+        if operation == "auth.step_up.status" {
+            arguments.insert(
+                "challenge_id".into(),
+                json!("01900000-0000-7000-8000-000000000003"),
             );
         }
         if operation == "form.get" {
