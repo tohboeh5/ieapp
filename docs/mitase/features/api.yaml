@@ -382,6 +382,16 @@ features:
             claims:
               - kind: satisfies
                 criterion: REQ-API-002#criterion.entry-lifecycle
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-create
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-edit
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-history
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.entry-restore
+              - kind: satisfies
+                criterion: REQ-JOURNEY-001#criterion.reopen
           - id: sql-command
             adapter: rust
             path: crates/ugoite-cli/src/commands/sql.rs
