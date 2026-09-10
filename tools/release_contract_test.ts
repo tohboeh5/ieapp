@@ -120,6 +120,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
     true,
   );
   assertEquals(releaseTool.includes("npm_package:"), true);
+  assertEquals(releaseTool.includes("schema_version: 3"), true);
   assertEquals(
     releaseTool.includes(
       "await verifyCandidateCliArchive(candidate);",

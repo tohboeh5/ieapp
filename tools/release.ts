@@ -1035,7 +1035,7 @@ async function prepareReleaseAssets(
     policy: RELEASE_SMOKE_POLICY,
   });
   const publicManifest = {
-    schema_version: 2,
+    schema_version: 3,
     release_tag: `v${candidate.manifest.version}`,
     version: candidate.manifest.version,
     source_sha: candidate.manifest.source_sha,
