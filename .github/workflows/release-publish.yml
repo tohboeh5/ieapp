@@ -179,6 +179,7 @@ jobs:
 
       - name: Verify versioned distribution surfaces
         env:
+          GH_TOKEN: ${{ github.token }}
           UGOITE_GITHUB_REPO: ${{ github.repository }}
           UGOITE_RELEASE_TOKEN: ${{ github.token }}
           UGOITE_RELEASE_SHA: ${{ needs.promote.outputs.source_sha }}

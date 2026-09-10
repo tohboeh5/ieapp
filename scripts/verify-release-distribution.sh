@@ -11,6 +11,10 @@ RELEASE_TOKEN_INPUT="${UGOITE_RELEASE_TOKEN:-}"
 ASSET_BASE_URL_INPUT="${UGOITE_RELEASE_ASSET_BASE_URL:-https://github.com/${REPO}/releases/download/${RELEASE_TAG_INPUT}}"
 IMAGE_PORT="${UGOITE_DISTRIBUTION_IMAGE_PORT:-18001}"
 
+if [ -n "$RELEASE_TOKEN_INPUT" ] && [ -z "${GH_TOKEN:-}" ]; then
+  export GH_TOKEN="$RELEASE_TOKEN_INPUT"
+fi
+
 log() {
   printf '%s\n' "$*" >&2
 }

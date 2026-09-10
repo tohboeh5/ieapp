@@ -130,6 +130,7 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   assertEquals(publish.includes("github.workflow_sha"), true);
   assertEquals(publish.includes("ref: ${{ github.workflow_sha }}"), true);
   assertEquals(publish.includes("verify-distribution:"), true);
+  assertEquals(publish.includes("GH_TOKEN: ${{ github.token }}"), true);
   assertEquals(publish.includes("release:verify-candidate-smoke"), true);
   assertEquals(publish.includes("verify-release-distribution.sh"), true);
   assertEquals(publish.includes("publish-channel-release-notes:"), true);
