@@ -578,6 +578,7 @@ async function verifyCandidateAssets(
 ): Promise<void> {
   const directory = dirname(candidate.manifestPath);
   await verifyCandidateCliArchives(candidate, directory);
+  await verifyCandidateCliArchive(candidate);
   await verifyCandidateNpmArchive(candidate, directory);
   await verifyCandidateHelmArchive(candidate, directory);
   await verifyCandidateImage(candidate);
@@ -1007,11 +1008,21 @@ async function prepareReleaseAssets(
   const image = candidate.manifest.artifacts.find((artifact) =>
     artifact.kind === "image"
   );
+  const npm = candidate.manifest.artifacts.find((artifact) =>
+    artifact.kind === "npm"
+  );
   const helm = candidate.manifest.artifacts.find((artifact) =>
     artifact.kind === "helm"
   );
+  const npmPackage = npm?.files.find((file) => file.path.endsWith(".tgz"));
+  const helmChart = helm?.files.find((file) => file.path.endsWith(".tgz"));
+  if (!npmPackage || !helmChart) {
+    throw new Error("candidate npm and Helm packages are required");
+  }
   const releaseAssets = candidate.manifest.artifacts
-    .filter((artifact) => artifact.kind === "release")
+    .filter((artifact) =>
+      artifact.kind === "cli" || artifact.kind === "release"
+    )
     .flatMap((artifact) => artifact.files)
     .map((file) => safeCandidatePath(directory, file.path));
   await ensureFile(receiptPath, "verification receipt");
@@ -1029,7 +1040,11 @@ async function prepareReleaseAssets(
     version: candidate.manifest.version,
     source_sha: candidate.manifest.source_sha,
     candidate_id: candidate.candidateId,
-    files: candidate.manifest.artifacts.flatMap((artifact) => artifact.files)
+    files: candidate.manifest.artifacts
+      .filter((artifact) =>
+        artifact.kind === "cli" || artifact.kind === "release"
+      )
+      .flatMap((artifact) => artifact.files)
       .map((file) => ({
         name: basename(file.path),
         sha256: file.sha256,
@@ -1039,10 +1054,13 @@ async function prepareReleaseAssets(
       repository: image?.config?.repository ?? "",
       digest: image?.config?.digest ?? "",
     },
+    npm_package: {
+      name: npm?.config?.package ?? "@ugoite/ugoite",
+      digest: npmPackage.sha256,
+    },
     helm_chart: {
       repository: "oci://ghcr.io/ugoite/charts/ugoite",
-      digest: helm?.files.find((file) => file.path.endsWith(".tgz"))?.sha256 ??
-        "",
+      digest: helmChart.sha256,
     },
   };
   await Deno.writeTextFile(

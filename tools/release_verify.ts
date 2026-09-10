@@ -1,6 +1,6 @@
 export const CANDIDATE_MANIFEST_SCHEMA_VERSION = 4;
 export const CANDIDATE_CONTRACT_VERSION = 4;
-export const RELEASE_MANIFEST_SCHEMA_VERSION = 2;
+export const RELEASE_MANIFEST_SCHEMA_VERSION = 3;
 export const VERIFICATION_RECEIPT_SCHEMA_VERSION = 1;
 export const RELEASE_SMOKE_POLICY = "release-smoke-v1";
 
@@ -69,7 +69,11 @@ export type PublishedReleaseManifest = {
     repository: string;
     digest: string;
   };
-  helm_chart?: {
+  npm_package: {
+    name: string;
+    digest: string;
+  };
+  helm_chart: {
     repository: string;
     digest: string;
   };
@@ -288,9 +292,8 @@ export function parsePublishedReleaseManifest(
   ) {
     throw new Error("release manifest image.digest must be a sha256 digest");
   }
-  const helmChart = value.helm_chart === undefined
-    ? undefined
-    : parsePublishedHelmChart(value.helm_chart);
+  const npmPackage = parsePublishedNpmPackage(value.npm_package);
+  const helmChart = parsePublishedHelmChart(value.helm_chart);
   return {
     schema_version: value.schema_version,
     release_tag: value.release_tag,
@@ -302,7 +305,8 @@ export function parsePublishedReleaseManifest(
       repository: value.image.repository,
       digest: value.image.digest,
     },
-    ...(helmChart ? { helm_chart: helmChart } : {}),
+    npm_package: npmPackage,
+    helm_chart: helmChart,
   };
 }
 
@@ -442,6 +446,24 @@ function parsePublishedHelmChart(value: unknown): {
     );
   }
   return { repository: value.repository, digest: value.digest };
+}
+
+function parsePublishedNpmPackage(value: unknown): {
+  name: string;
+  digest: string;
+} {
+  if (!isRecord(value)) {
+    throw new Error("release manifest npm_package must be an object");
+  }
+  requireNonEmptyString(value.name, "release manifest npm_package.name");
+  if (
+    typeof value.digest !== "string" || !fileDigestPattern.test(value.digest)
+  ) {
+    throw new Error(
+      "release manifest npm_package.digest must be a SHA-256 digest",
+    );
+  }
+  return { name: value.name, digest: value.digest };
 }
 
 function assertCandidateId(

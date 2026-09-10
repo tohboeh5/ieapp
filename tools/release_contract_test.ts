@@ -114,6 +114,23 @@ Deno.test("REQ-OPS-044: repository-native release tasks and split workflows are 
   );
   assertEquals(releaseTool.includes("candidateIdFromManifestBytes"), true);
   assertEquals(
+    releaseTool.includes(
+      'artifact.kind === "cli" || artifact.kind === "release"',
+    ),
+    true,
+  );
+  assertEquals(releaseTool.includes("npm_package:"), true);
+  assertEquals(
+    releaseTool.includes(
+      "await verifyCandidateCliArchive(candidate);",
+    ),
+    true,
+  );
+  assertEquals(
+    distributionVerifier.includes("manifest.npm_package.digest"),
+    true,
+  );
+  assertEquals(
     publish.includes("run-id: ${{ inputs.candidate_run_id }}"),
     true,
   );

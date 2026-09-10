@@ -228,9 +228,7 @@ done <<<"$asset_names"
 expected_npm_sha="$(MANIFEST_PATH="$MANIFEST_PATH" deno eval '
 const { parsePublishedReleaseManifest } = await import("./tools/release_verify.ts");
 const manifest = parsePublishedReleaseManifest(JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!)));
-const file = manifest.files.find((entry) => entry.name.startsWith("ugoite-ugoite-") && entry.name.endsWith(".tgz"));
-if (!file) throw new Error("release manifest is missing npm digest");
-console.log(file.sha256);
+console.log(manifest.npm_package.digest);
 ')"
 npm_url="$(npm view "@ugoite/ugoite@${VERSION_INPUT}" dist.tarball --json | tr -d '"')"
 npm_path="$WORK_ROOT/npm.tgz"
@@ -247,7 +245,6 @@ curl "${npm_curl_args[@]}" "$npm_url" -o "$npm_path"
 helm_digest="$(MANIFEST_PATH="$MANIFEST_PATH" deno eval '
 const { parsePublishedReleaseManifest } = await import("./tools/release_verify.ts");
 const manifest = parsePublishedReleaseManifest(JSON.parse(await Deno.readTextFile(Deno.env.get("MANIFEST_PATH")!)));
-if (!manifest.helm_chart?.digest) throw new Error("release manifest is missing Helm digest");
 console.log(manifest.helm_chart.digest);
 ')"
 helm_dir="$WORK_ROOT/helm"

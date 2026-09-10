@@ -140,7 +140,7 @@ Deno.test("release verifier core validates the published distribution projection
   const candidateBytes = manifestBytes();
   const candidateId = await candidateIdFromManifestBytes(candidateBytes);
   const published = parsePublishedReleaseManifest({
-    schema_version: 2,
+    schema_version: 3,
     release_tag: "v0.1.0",
     version: "0.1.0",
     source_sha: sourceSha,
@@ -149,6 +149,10 @@ Deno.test("release verifier core validates the published distribution projection
     image: {
       repository: "ghcr.io/ugoite/ugoite",
       digest: `sha256:${"c".repeat(64)}`,
+    },
+    npm_package: {
+      name: "@ugoite/ugoite",
+      digest: "e".repeat(64),
     },
     helm_chart: {
       repository: "oci://ghcr.io/ugoite/charts/ugoite",
@@ -163,6 +167,7 @@ Deno.test("release verifier core validates the published distribution projection
     candidateId,
   });
   assertEquals(findPublishedReleaseFile(published, "ugoite.tar.gz").size, 3);
+  assertEquals(published.npm_package.name, "@ugoite/ugoite");
   assertEquals(published.helm_chart?.digest, "f".repeat(64));
   await assertFails(
     () =>
@@ -182,6 +187,14 @@ Deno.test("release verifier core validates the published distribution projection
         image: { repository: "ghcr.io/ugoite/ugoite", digest: "invalid" },
       }),
     "image.digest must be a sha256 digest",
+  );
+  await assertFails(
+    () =>
+      parsePublishedReleaseManifest({
+        ...published,
+        npm_package: { name: "@ugoite/ugoite", digest: "invalid" },
+      }),
+    "npm_package.digest must be a SHA-256 digest",
   );
   await assertFails(
     () =>
