@@ -14,6 +14,8 @@ a product or support claim is safe to make.
   unavailable capabilities.
 - [Versioning and release contract](release-contract.md) defines preparation,
   candidate verification, and buildless promotion.
+- [Release platform support](platform-support.md) defines the Tier 1, Tier 2,
+  and unsupported artifact targets.
 - [Release rearchitecture status](release-rearchitecture.md) records the
   Rust/Deno consolidation and remaining future work.
 - [Release planner ref recovery](release-planner-recovery.md) defines the

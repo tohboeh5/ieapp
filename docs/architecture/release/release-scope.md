@@ -55,6 +55,10 @@ support, and product claims stay aligned with the implementation.
   distribution check verifies exact assets, registry identity and availability,
   container health, and CLI version. An operator-supported release still
   requires a successful published version.
+- release platform support is tiered: the four current CLI targets and the Linux
+  `amd64`/`arm64` container image are Tier 1; Tier 2 is a best-effort or
+  nightly-only future set and is currently empty; all other targets are
+  unsupported until explicitly assigned a tier.
 
 Release documentation and changelogs must use these boundaries rather than
 planned capability.

@@ -38,7 +38,8 @@
       "docs/architecture/api",
       "docs/architecture/release/release-rearchitecture.md",
       "docs/architecture/release/release-contract.md",
-      "docs/architecture/release/release-scope.md"
+      "docs/architecture/release/release-scope.md",
+      "docs/architecture/release/platform-support.md"
     ],
     "exclude": [
       "target",
