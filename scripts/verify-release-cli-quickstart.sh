@@ -202,6 +202,10 @@ if [ "$KEEP_WORK_ROOT" = "1" ]; then
   cleanup_mode="keep"
 fi
 
+# Keep this verifier isolated from any endpoint configuration inherited from
+# the runner; the CLI quick start is intentionally local-first.
+export UGOITE_CLI_CONFIG_PATH="$WORK_ROOT/cli-endpoints.json"
+
 cleanup() {
   if [ "$cleanup_mode" = "cleanup" ]; then
     rm -rf "$WORK_ROOT"
