@@ -23,11 +23,12 @@ type ManifestArtifact = {
 };
 
 type ArtifactManifest = {
-  schema_version: 2;
+  schema_version: number;
   version: string;
   source_sha: string | null;
   ci_run_id: string | null;
-  contract_version: 2;
+  source_ci_required_check_run_id: string | null;
+  contract_version: number;
   generated_at: string;
   verification: { release_grade: string };
   artifacts: ManifestArtifact[];
@@ -111,9 +112,12 @@ async function buildManifest(candidate: boolean): Promise<ArtifactManifest> {
   const sourceSha = await sourceIdentity(candidate);
   const ciRunId = Deno.env.get("UGOITE_CI_RUN_ID")?.trim() ??
     Deno.env.get("GITHUB_RUN_ID")?.trim() ?? (candidate ? null : null);
-  if (candidate && (!sourceSha || !ciRunId)) {
+  const sourceCiRequiredCheckRunId = Deno.env.get(
+    "UGOITE_SOURCE_CI_REQUIRED_CHECK_RUN_ID",
+  )?.trim() ?? null;
+  if (candidate && (!sourceSha || !ciRunId || !sourceCiRequiredCheckRunId)) {
     throw new Error(
-      "candidate manifest requires source SHA and CI run identity",
+      "candidate manifest requires source SHA, candidate run identity, and source ci-required check run identity",
     );
   }
 
@@ -223,11 +227,12 @@ async function buildManifest(candidate: boolean): Promise<ArtifactManifest> {
   }
 
   return {
-    schema_version: 2,
+    schema_version: candidate ? 3 : 2,
     version,
     source_sha: sourceSha,
     ci_run_id: ciRunId,
-    contract_version: 2,
+    source_ci_required_check_run_id: sourceCiRequiredCheckRunId,
+    contract_version: candidate ? 3 : 2,
     generated_at: new Date().toISOString(),
     verification: {
       release_grade: Deno.env.get("UGOITE_RELEASE_GRADE") ?? "not_run",
