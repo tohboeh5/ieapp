@@ -147,3 +147,23 @@ Deno.test("journey Mitase selectors match exact Playwright test names", async ()
     );
   }
 });
+
+// Same parity rule for the Rust corpus: every bare `name:` selector in the
+// journey requirements must resolve to a real test function in its harness.
+Deno.test("parity Mitase selectors match exact Rust test functions", async () => {
+  const yaml = await Deno.readTextFile("docs/mitase/requirements/journey.yaml");
+  const selectors = [...yaml.matchAll(
+    /path: (crates\/ugoite-cli\/tests\/test_journey_(?:core|remote)\.rs)\n\s*selector: \{ kind: test, name: ([a-z0-9_]+) \}/g,
+  )].map((match) => ({ file: match[1], name: match[2] }));
+  assertEquals(selectors.length, 13);
+  const sources = new Map<string, string>();
+  for (const { file, name } of selectors) {
+    if (!sources.has(file)) sources.set(file, await Deno.readTextFile(file));
+    const source = sources.get(file) as string;
+    assertEquals(
+      source.includes(`fn ${name}(`),
+      true,
+      `missing Rust test ${name} in ${file}`,
+    );
+  }
+});

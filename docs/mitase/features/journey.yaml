@@ -44,6 +44,8 @@ features:
                 criterion: REQ-JOURNEY-001#criterion.entry-restore
               - kind: satisfies
                 criterion: REQ-JOURNEY-001#criterion.reopen
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.stale-revision
           - id: search-api
             adapter: typescript
             path: frontend/src/lib/search-api.ts
@@ -306,3 +308,12 @@ features:
           - target: FEAT-JOURNEY-001#binding.cli-core/target.search-command
             role: operator
         guarantees: [REQ-JOURNEY-001#criterion.reopen]
+      - id: journey-stale-revision
+        kind: http
+        source: FEAT-JOURNEY-001#binding.contract/target.update-entry
+        participants:
+          - target: FEAT-JOURNEY-001#binding.frontend/target.entry-api
+            role: client
+          - target: FEAT-API-001#binding.cli-implementation/target.entry-command
+            role: operator
+        guarantees: [REQ-JOURNEY-002#criterion.stale-revision]

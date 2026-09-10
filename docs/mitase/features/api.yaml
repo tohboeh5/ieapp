@@ -392,6 +392,18 @@ features:
                 criterion: REQ-JOURNEY-001#criterion.entry-restore
               - kind: satisfies
                 criterion: REQ-JOURNEY-001#criterion.reopen
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.invalid-field
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.missing-required
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.stale-revision
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.restore-unknown-revision
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.missing-form
+              - kind: satisfies
+                criterion: REQ-JOURNEY-002#criterion.remote-authorization
           - id: sql-command
             adapter: rust
             path: crates/ugoite-cli/src/commands/sql.rs

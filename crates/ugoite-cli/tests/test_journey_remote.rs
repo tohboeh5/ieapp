@@ -121,7 +121,14 @@ async fn journey_cli_remote_reaches_durable_outcome() {
         .expect("journey CLI remote test timed out");
 }
 
-async fn journey_cli_remote() {
+struct RemoteFixture {
+    config_path: std::path::PathBuf,
+    space_id: String,
+    _config_dir: tempfile::TempDir,
+    _server: ServerGuard,
+}
+
+async fn setup_remote() -> RemoteFixture {
     // Real server over loopback TCP with test-issued REST access: the only
     // fixture is transport and auth ceremony, never business semantics.
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind server");
@@ -196,6 +203,19 @@ async fn journey_cli_remote() {
     )
     .expect("write CLI credential");
 
+    RemoteFixture {
+        config_path,
+        space_id: access.space_uid.to_string(),
+        _config_dir: config_dir,
+        _server,
+    }
+}
+
+async fn journey_cli_remote() {
+    let fixture = setup_remote().await;
+    let config_path = &fixture.config_path;
+    let space_id: &str = &fixture.space_id;
+
     // Bare Space IDs select the remote transport in every command below.
     //
     // The journey Space itself comes from credential issuance (fixture
@@ -203,8 +223,6 @@ async fn journey_cli_remote() {
     // product design, because Space creation requires a browser session with
     // a recent Passkey plus the node-admin role. That transport boundary is
     // tracked separately and is not represented as journey evidence here.
-    let space_id = access.space_uid.to_string();
-    let space_id: &str = &space_id;
     let form_name = "JourneyRemoteForm";
     let needle = "journey-remote-needle";
     let entry_id = "journey-remote-entry";
@@ -212,13 +230,16 @@ async fn journey_cli_remote() {
     // Space create is intentionally not driven remotely (see above): prove
     // the provisioned Space is durable and reopenable through remote reads.
     let space = stdout_json(
-        &run_cli(&config_path, &["space", "get", space_id]).await,
+        &run_cli(config_path, &["space", "get", space_id]).await,
         "space get",
     );
     assert!(contains_string(&space, space_id));
 
     // Form establish via `form update`: the upsert path behind a weaker name.
-    let form_file = config_dir.path().join("journey-remote-form.json");
+    let form_file = config_path
+        .parent()
+        .expect("config parent")
+        .join("journey-remote-form.json");
     std::fs::write(
         &form_file,
         format!(
@@ -227,7 +248,7 @@ async fn journey_cli_remote() {
     )
     .expect("write journey form");
     let output = run_cli(
-        &config_path,
+        config_path,
         &["form", "update", space_id, form_file.to_str().unwrap()],
     )
     .await;
@@ -237,7 +258,7 @@ async fn journey_cli_remote() {
         String::from_utf8_lossy(&output.stderr)
     );
     let form = stdout_json(
-        &run_cli(&config_path, &["form", "get", space_id, form_name]).await,
+        &run_cli(config_path, &["form", "get", space_id, form_name]).await,
         "form get",
     );
     assert_eq!(
@@ -260,7 +281,7 @@ async fn journey_cli_remote() {
     );
     let created = stdout_json(
         &run_cli(
-            &config_path,
+            config_path,
             &["entry", "create", "--content", &v1, space_id, entry_id],
         )
         .await,
@@ -268,7 +289,7 @@ async fn journey_cli_remote() {
     );
     assert!(contains_string(&created, entry_id));
     let history = stdout_json(
-        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        &run_cli(config_path, &["entry", "history", space_id, entry_id]).await,
         "entry history after create",
     );
     let ids = revision_ids(&history);
@@ -283,7 +304,7 @@ async fn journey_cli_remote() {
     // parsing as a flag; the update flag lacks allow_hyphen_values.
     let markdown_arg = format!("--markdown={v2}");
     let output = run_cli(
-        &config_path,
+        config_path,
         &[
             "entry",
             "update",
@@ -301,7 +322,7 @@ async fn journey_cli_remote() {
         String::from_utf8_lossy(&output.stderr)
     );
     let history = stdout_json(
-        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        &run_cli(config_path, &["entry", "history", space_id, entry_id]).await,
         "entry history after edit",
     );
     let ids = revision_ids(&history);
@@ -309,7 +330,7 @@ async fn journey_cli_remote() {
     assert!(ids.contains(&rev1));
     let rev2 = ids.into_iter().find(|id| id != &rev1).expect("rev2");
     let stale = run_cli(
-        &config_path,
+        config_path,
         &[
             "entry",
             "update",
@@ -328,7 +349,7 @@ async fn journey_cli_remote() {
 
     // Search finds the updated durable Entry.
     let results = stdout_json(
-        &run_cli(&config_path, &["search", "keyword", space_id, needle]).await,
+        &run_cli(config_path, &["search", "keyword", space_id, needle]).await,
         "search keyword",
     );
     assert!(
@@ -338,7 +359,7 @@ async fn journey_cli_remote() {
 
     // Restore appends a new revision replaying rev1; history never shortens.
     let output = run_cli(
-        &config_path,
+        config_path,
         &["entry", "restore", space_id, entry_id, &rev1],
     )
     .await;
@@ -348,7 +369,7 @@ async fn journey_cli_remote() {
         String::from_utf8_lossy(&output.stderr)
     );
     let history = stdout_json(
-        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        &run_cli(config_path, &["entry", "history", space_id, entry_id]).await,
         "entry history after restore",
     );
     let ids = revision_ids(&history);
@@ -361,7 +382,7 @@ async fn journey_cli_remote() {
         .expect("rev3");
     let revision = stdout_json(
         &run_cli(
-            &config_path,
+            config_path,
             &["entry", "revision", space_id, entry_id, &rev3],
         )
         .await,
@@ -378,17 +399,17 @@ async fn journey_cli_remote() {
 
     // Reopen: fresh processes read identical durable state.
     let space = stdout_json(
-        &run_cli(&config_path, &["space", "get", space_id]).await,
+        &run_cli(config_path, &["space", "get", space_id]).await,
         "space get on reopen",
     );
     assert!(contains_string(&space, space_id));
     let history = stdout_json(
-        &run_cli(&config_path, &["entry", "history", space_id, entry_id]).await,
+        &run_cli(config_path, &["entry", "history", space_id, entry_id]).await,
         "entry history on reopen",
     );
     assert_eq!(revision_ids(&history).len(), 3);
     let results = stdout_json(
-        &run_cli(&config_path, &["search", "keyword", space_id, needle]).await,
+        &run_cli(config_path, &["search", "keyword", space_id, needle]).await,
         "search keyword on reopen",
     );
     assert!(contains_string(&results, entry_id));
@@ -402,4 +423,356 @@ async fn state_issue_rest_access(
         .issue_test_rest_access(public_key_jwk)
         .await
         .expect("issue test REST credential")
+}
+
+// --- Semantic parity corpus (surface=cli, transport=remote) ---
+//
+// Each case asserts the same two things the core corpus asserts: the
+// machine-readable failure classification and the unchanged durable state.
+// Presentation wording is never compared across surfaces.
+
+async fn setup_parity_form(fixture: &RemoteFixture, form_fields: &str, form_name: &str) {
+    let form_file = fixture
+        .config_path
+        .parent()
+        .expect("config parent")
+        .join(format!("parity-remote-{form_name}.json"));
+    std::fs::write(
+        &form_file,
+        format!(
+            "{{\"name\":\"{form_name}\",\"version\":1,\"template\":\"# {form_name}\\n\\n## Status\\n\\n## Body\\n\",\"fields\":{form_fields}}}"
+        ),
+    )
+    .expect("write parity form");
+    let output = run_cli(
+        &fixture.config_path,
+        &[
+            "form",
+            "update",
+            &fixture.space_id,
+            form_file.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(
+        output.status.success(),
+        "parity setup form establish failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn parity_markdown(form_name: &str, title: &str, status: Option<&str>, body: &str) -> String {
+    let status_section = status
+        .map(|value| format!("\n## Status\n{value}\n"))
+        .unwrap_or_default();
+    format!("---\nform: {form_name}\n---\n# {title}\n{status_section}\n## Body\n{body}\n")
+}
+
+async fn entry_absent(fixture: &RemoteFixture, entry_id: &str) {
+    let output = run_cli(
+        &fixture.config_path,
+        &["entry", "get", &fixture.space_id, entry_id],
+    )
+    .await;
+    assert!(
+        !output.status.success(),
+        "rejected mutation must not persist an entry"
+    );
+}
+
+async fn create_parity_entry(fixture: &RemoteFixture, entry_id: &str, markdown: &str) -> String {
+    let created = stdout_json(
+        &run_cli(
+            &fixture.config_path,
+            &[
+                "entry",
+                "create",
+                "--content",
+                markdown,
+                &fixture.space_id,
+                entry_id,
+            ],
+        )
+        .await,
+        "parity setup entry create",
+    );
+    assert!(contains_string(&created, entry_id));
+    let history = stdout_json(
+        &run_cli(
+            &fixture.config_path,
+            &["entry", "history", &fixture.space_id, entry_id],
+        )
+        .await,
+        "parity setup history",
+    );
+    let ids = revision_ids(&history);
+    assert_eq!(ids.len(), 1);
+    ids[0].clone()
+}
+
+/// Invalid field values are rejected with field-identifying validation
+/// semantics and persist nothing.
+#[tokio::test]
+async fn test_parity_remote_invalid_field_rejected_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+            fixture,
+            "{\"Status\":{\"type\":\"string\",\"required\":true},\"Count\":{\"type\":\"double\"},\"Body\":{\"type\":\"markdown\"}}",
+            "ParityRemoteForm",
+        )
+        .await;
+    let markdown = "---\nform: ParityRemoteForm\n---\n# Parity invalid\n\n## Status\nok\n\n## Count\nnot-a-number\n\n## Body\nx\n";
+    let output = run_cli(
+        &fixture.config_path,
+        &[
+            "entry",
+            "create",
+            "--content",
+            markdown,
+            &fixture.space_id,
+            "parity-invalid",
+        ],
+    )
+    .await;
+    assert!(!output.status.success(), "mistyped field must be rejected");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // Remote renders the shared warning payload inline instead of the core
+    // formatted lines; the field-identifying classification must still
+    // match. Presentation drift is tracked separately.
+    assert!(stderr.contains("invalid"), "stderr: {stderr}");
+    assert!(stderr.contains("Count"), "stderr: {stderr}");
+    entry_absent(fixture, "parity-invalid").await;
+}
+
+/// Missing required fields are rejected and persist nothing.
+#[tokio::test]
+async fn test_parity_remote_missing_required_rejected_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+        fixture,
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+        "ParityRemoteForm",
+    )
+    .await;
+    let markdown = parity_markdown("ParityRemoteForm", "Parity missing", None, "x");
+    let output = run_cli(
+        &fixture.config_path,
+        &[
+            "entry",
+            "create",
+            "--content",
+            &markdown,
+            &fixture.space_id,
+            "parity-missing",
+        ],
+    )
+    .await;
+    assert!(
+        !output.status.success(),
+        "missing required field must be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // Same transport-rendering note as the invalid-field case above.
+    assert!(stderr.contains("required"), "stderr: {stderr}");
+    assert!(stderr.contains("Status"), "stderr: {stderr}");
+    entry_absent(fixture, "parity-missing").await;
+}
+
+/// Stale parents conflict with 409-equivalent semantics and persist nothing.
+#[tokio::test]
+async fn test_parity_remote_stale_revision_conflicts_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+        fixture,
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+        "ParityRemoteForm",
+    )
+    .await;
+    let v1 = parity_markdown("ParityRemoteForm", "Parity stale", Some("ok"), "v1");
+    let rev1 = create_parity_entry(fixture, "parity-stale", &v1).await;
+    let v2 = parity_markdown("ParityRemoteForm", "Parity stale v2", Some("ok"), "v2");
+    let markdown_arg = format!("--markdown={v2}");
+    let updated = run_cli(
+        &fixture.config_path,
+        &[
+            "entry",
+            "update",
+            &fixture.space_id,
+            "parity-stale",
+            markdown_arg.as_str(),
+            "--parent-revision-id",
+            &rev1,
+        ],
+    )
+    .await;
+    assert!(updated.status.success());
+    let stale = run_cli(
+        &fixture.config_path,
+        &[
+            "entry",
+            "update",
+            &fixture.space_id,
+            "parity-stale",
+            markdown_arg.as_str(),
+            "--parent-revision-id",
+            &rev1,
+        ],
+    )
+    .await;
+    assert!(!stale.status.success(), "stale parent must conflict");
+    let stderr = String::from_utf8_lossy(&stale.stderr);
+    assert!(stderr.contains("Revision conflict"), "stderr: {stderr}");
+    let history = stdout_json(
+        &run_cli(
+            &fixture.config_path,
+            &["entry", "history", &fixture.space_id, "parity-stale"],
+        )
+        .await,
+        "parity history after conflict",
+    );
+    assert_eq!(revision_ids(&history).len(), 2);
+}
+
+/// Restoring an unknown revision is rejected as not-found; history unchanged.
+#[tokio::test]
+async fn test_parity_remote_restore_unknown_revision_rejected_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+        fixture,
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+        "ParityRemoteForm",
+    )
+    .await;
+    let v1 = parity_markdown("ParityRemoteForm", "Parity restore", Some("ok"), "v1");
+    create_parity_entry(fixture, "parity-restore", &v1).await;
+    let output = run_cli(
+        &fixture.config_path,
+        &[
+            "entry",
+            "restore",
+            &fixture.space_id,
+            "parity-restore",
+            "00000000-0000-0000-0000-000000000000",
+        ],
+    )
+    .await;
+    assert!(
+        !output.status.success(),
+        "unknown revision must be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("not found"), "stderr: {stderr}");
+    let history = stdout_json(
+        &run_cli(
+            &fixture.config_path,
+            &["entry", "history", &fixture.space_id, "parity-restore"],
+        )
+        .await,
+        "parity history after rejected restore",
+    );
+    assert_eq!(revision_ids(&history).len(), 1);
+}
+
+/// Unknown Forms are rejected with form-identifying classification.
+#[tokio::test]
+async fn test_parity_remote_missing_form_rejected_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+        fixture,
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+        "ParityRemoteForm",
+    )
+    .await;
+    let markdown = parity_markdown("NoSuchFormParity", "Parity noform", Some("ok"), "x");
+    let output = run_cli(
+        &fixture.config_path,
+        &[
+            "entry",
+            "create",
+            "--content",
+            &markdown,
+            &fixture.space_id,
+            "parity-noform",
+        ],
+    )
+    .await;
+    assert!(!output.status.success(), "unknown form must be rejected");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Form not found: NoSuchFormParity"),
+        "stderr: {stderr}"
+    );
+    entry_absent(fixture, "parity-noform").await;
+}
+
+/// Unauthenticated remote mutations are rejected without mutation. Local
+/// core has no auth boundary, so this case is remote-only by design.
+#[tokio::test]
+async fn test_parity_remote_unauthenticated_mutation_rejected_without_mutation() {
+    let fixture = setup_remote().await;
+    let fixture: &RemoteFixture = &fixture;
+    setup_parity_form(
+        fixture,
+        "{\"Status\":{\"type\":\"string\",\"required\":true},\"Body\":{\"type\":\"markdown\"}}",
+        "ParityRemoteForm",
+    )
+    .await;
+    let v1 = parity_markdown("ParityRemoteForm", "Parity auth", Some("ok"), "v1");
+    create_parity_entry(fixture, "parity-auth", &v1).await;
+
+    let bare_dir = tempfile::tempdir().expect("bare config directory");
+    let bare_config = bare_dir.path().join("cli-endpoints.json");
+    let api_url = {
+        let raw = std::fs::read_to_string(&fixture.config_path).expect("read endpoint config");
+        let parsed: serde_json::Value = serde_json::from_str(&raw).expect("parse endpoint config");
+        parsed
+            .get("api_url")
+            .and_then(|url| url.as_str())
+            .expect("api_url")
+            .to_string()
+    };
+    std::fs::write(
+        &bare_config,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "mode": "api",
+            "backend_url": api_url,
+            "api_url": api_url,
+        }))
+        .expect("serialize bare endpoint config"),
+    )
+    .expect("write bare endpoint config");
+
+    let v2 = parity_markdown("ParityRemoteForm", "Parity auth v2", Some("ok"), "v2");
+    let markdown_arg = format!("--markdown={v2}");
+    let denied = run_cli(
+        &bare_config,
+        &[
+            "entry",
+            "update",
+            &fixture.space_id,
+            "parity-auth",
+            markdown_arg.as_str(),
+        ],
+    )
+    .await;
+    assert!(
+        !denied.status.success(),
+        "unauthenticated mutation must be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&denied.stderr);
+    assert!(stderr.contains("access token"), "stderr: {stderr}");
+    let history = stdout_json(
+        &run_cli(
+            &fixture.config_path,
+            &["entry", "history", &fixture.space_id, "parity-auth"],
+        )
+        .await,
+        "parity history after rejected mutation",
+    );
+    assert_eq!(revision_ids(&history).len(), 1);
 }
