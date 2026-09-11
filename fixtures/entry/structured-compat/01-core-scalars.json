@@ -1,0 +1,45 @@
+{
+  "name": "core-scalars",
+  "description": "title/form/tags plus string, markdown, boolean, integer, long, float with required enforcement",
+  "form": {
+    "id": "01900000-0000-7000-8000-0000000000a1",
+    "version": 1,
+    "name": "Note",
+    "fields": [
+      { "id": 100, "name": "Body", "field_type": "string", "required": true },
+      { "id": 101, "name": "Notes", "field_type": "markdown", "required": false },
+      { "id": 102, "name": "Done", "field_type": "boolean", "required": true },
+      { "id": 103, "name": "Count", "field_type": "integer", "required": false },
+      { "id": 104, "name": "Total", "field_type": "long", "required": false },
+      { "id": 105, "name": "Rate", "field_type": "float", "required": false }
+    ],
+    "allow_extra_attributes": false
+  },
+  "markdown": "---\nform: Note\ntags:\n  - inbox\n  - review\n---\n# Shopping list\n\n## Body\n\nBuy milk.\n\n## Notes\n\nSome *markdown* body.\n\n## Done\nyes\n\n## Count\n42\n\n## Total\n9000000000\n\n## Rate\n3.14\n",
+  "structured": {
+    "title": "Shopping list",
+    "form": "Note",
+    "tags": ["inbox", "review"],
+    "fields": {
+      "Body": "Buy milk.",
+      "Notes": "Some *markdown* body.",
+      "Done": true,
+      "Count": 42,
+      "Total": 9000000000,
+      "Rate": 3.14
+    }
+  },
+  "expected": {
+    "title": "Shopping list",
+    "tags": ["inbox", "review"],
+    "values": {
+      "100": "Buy milk.",
+      "101": "Some *markdown* body.",
+      "102": true,
+      "103": 42,
+      "104": 9000000000,
+      "105": 3.14
+    },
+    "extra_attributes": {}
+  }
+}

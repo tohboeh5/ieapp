@@ -2,6 +2,7 @@
 #![deny(clippy::all)]
 
 pub mod change;
+pub mod entry;
 pub mod error;
 pub mod metadata;
 pub mod query;

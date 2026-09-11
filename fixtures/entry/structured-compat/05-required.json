@@ -1,0 +1,29 @@
+{
+  "name": "required",
+  "description": "required enforcement is shared: missing required string/boolean/list fail on both paths",
+  "form": {
+    "id": "01900000-0000-7000-8000-0000000000a5",
+    "version": 1,
+    "name": "Task",
+    "fields": [
+      { "id": 100, "name": "Title", "field_type": "string", "required": true },
+      { "id": 101, "name": "Done", "field_type": "boolean", "required": true },
+      { "id": 102, "name": "Labels", "field_type": "list", "required": true }
+    ],
+    "allow_extra_attributes": false
+  },
+  "invalid_markdowns": [
+    "---\nform: Task\n---\n# T\n\n## Done\ntrue\n\n## Labels\n- a\n",
+    "---\nform: Task\n---\n# T\n\n## Title\nhello\n\n## Labels\n- a\n",
+    "---\nform: Task\n---\n# T\n\n## Title\nhello\n\n## Done\ntrue\n"
+  ],
+  "invalid_structured": [
+    { "Done": true, "Labels": ["a"] },
+    { "Title": "hello", "Labels": ["a"] },
+    { "Title": "hello", "Done": true }
+  ],
+  "valid": {
+    "markdown": "---\nform: Task\n---\n# T\n\n## Title\nhello\n\n## Done\ntrue\n\n## Labels\n- a\n",
+    "fields": { "Title": "hello", "Done": true, "Labels": ["a"] }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "name": "compat-rules",
+  "description": "null markers, boolean aliases, markdown list syntax, unknown fields and extra attributes policy",
+  "form_allow": {
+    "id": "01900000-0000-7000-8000-0000000000a4",
+    "version": 1,
+    "name": "CompatAllow",
+    "fields": [
+      { "id": 100, "name": "Title", "field_type": "string", "required": false },
+      { "id": 101, "name": "Done", "field_type": "boolean", "required": false },
+      { "id": 102, "name": "Count", "field_type": "integer", "required": false },
+      { "id": 103, "name": "Items", "field_type": "list", "required": false }
+    ],
+    "allow_extra_attributes": true
+  },
+  "form_deny": {
+    "id": "01900000-0000-7000-8000-0000000000a4",
+    "version": 1,
+    "name": "CompatAllow",
+    "fields": [
+      { "id": 100, "name": "Title", "field_type": "string", "required": false },
+      { "id": 101, "name": "Done", "field_type": "boolean", "required": false },
+      { "id": 102, "name": "Count", "field_type": "integer", "required": false },
+      { "id": 103, "name": "Items", "field_type": "list", "required": false }
+    ],
+    "allow_extra_attributes": false
+  },
+  "cases": [
+    {
+      "name": "null-markers-become-null",
+      "markdown": "---\nform: CompatAllow\n---\n# T\n\n## Count\nnull\n\n## Done\n~\n",
+      "structured_fields": { "Count": null, "Done": null },
+      "expected_values": {
+        "102": "Null",
+        "101": "Null"
+      }
+    },
+    {
+      "name": "boolean-aliases",
+      "markdown": "---\nform: CompatAllow\n---\n# T\n\n## Done\nON\n",
+      "structured_fields": { "Done": "off" },
+      "markdown_expected": true,
+      "structured_expected": false
+    },
+    {
+      "name": "markdown-list-syntax",
+      "markdown": "---\nform: CompatAllow\n---\n# T\n\n## Items\n- Alpha\n* Beta\n+ Gamma\n",
+      "structured_fields": { "Items": ["Alpha", "Beta", "Gamma"] },
+      "expected_items": ["Alpha", "Beta", "Gamma"]
+    },
+    {
+      "name": "unknown-field-is-extra-when-allowed",
+      "markdown": "---\nform: CompatAllow\n---\n# T\n\n## Title\nhello\n\n## Scratch\nkeep me\n",
+      "allow_extra": true,
+      "expected_extra": { "Scratch": "keep me" }
+    },
+    {
+      "name": "unknown-field-rejected-when-denied",
+      "markdown": "---\nform: CompatAllow\n---\n# T\n\n## Title\nhello\n\n## Scratch\nkeep me\n",
+      "allow_extra": false,
+      "expect_unknown_fields": ["Scratch"]
+    }
+  ]
+}
