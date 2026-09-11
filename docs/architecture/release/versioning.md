@@ -5,10 +5,10 @@ title: "Versions overview"
 Machine-readable status lives under `docs/version/`; these pages explain the
 product meaning.
 
-| Stream | Status      | Current meaning                                                                                                        |
-| ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `v0.1` | in progress | Foundation Freeze for user-owned Knowledge, portable history, and thin adapters; release completion remains incomplete |
-| `v0.2` | planned     | first product realization of portable user-controlled Experience and bounded AI workflows                              |
+| Stream | Status      | Current meaning                                                                                                                                                               |
+| ------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v0.1` | in progress | Foundation Freeze for user-owned Knowledge, portable history, and thin adapters; release completion remains incomplete                                                        |
+| `v0.2` | planned     | Product UX sole authority: make the frozen v0.1 Foundation completable, discoverable, and consistent; Knowledge-to-tools remains a North Star, not a shipped acceptance claim |
 
 A task marked done means its described implementation exists. Planned
 capabilities must not be inferred from a version heading or roadmap file.

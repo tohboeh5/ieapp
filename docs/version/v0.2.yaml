@@ -1,28 +1,17 @@
 version: "0.2"
 status: planned
 summary: >
-  Planned product realization of Knowledge-to-tools: portable, inspectable
-  user-controlled Experiences and bounded AI-assisted workflows built on the
-  v0.1 authority model, beyond today's small stable MCP v1 facade.
+  Sole active v0.2 authority: Product UX. Make the frozen v0.1 Foundation
+  completable, discoverable, and consistent across surfaces through completion,
+  discoverability, cross-surface consistency, validation clarity, recovery, and
+  documentation correctness. Knowledge-to-tools remains a North Star, not a
+  shipped v0.2 acceptance claim. The former View and AI milestone authorities
+  are obsolete and are no longer active v0.2 scope.
 milestones:
-  - id: user-controlled-view
+  - id: product-ux
     status: planned
     source:
-      - docs/version/v0.2/user-controlled-view.yaml
-      - docs/spec/ui/index.md
-    phases:
-      - id: design
-        status: planned
-      - id: implementation
-        status: planned
-      - id: testing
-        status: planned
-  - id: ai-enabled-and-ai-used
-    status: planned
-    source:
-      - docs/version/v0.2/ai-enabled-and-ai-used.yaml
-      - docs/spec/stories/experimental.yaml
-      - docs/architecture/api/mcp.md
+      - docs/version/v0.2/product-ux.yaml
     phases:
       - id: design
         status: planned

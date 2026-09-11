@@ -1,0 +1,36 @@
+id: product-ux
+version: "0.2"
+status: planned
+title: "Product UX: Make the Foundation Usable"
+goal: >
+  Make existing durable Knowledge capabilities completable and usable without
+  changing v0.1 ownership, authority, history, or adapter boundaries. Success is
+  judged through completion, discoverability, cross-surface consistency,
+  validation clarity, recovery, and documentation correctness.
+  Knowledge-to-tools remains a North Star, not a shipped v0.2 acceptance claim.
+phases:
+  - id: design
+    status: planned
+    tasks:
+      - description: "Define completion outcomes for existing Entry, Form, Asset, search, and SQL journeys"
+        done: false
+      - description: "Define the discoverability and cross-surface consistency contract for browser, core CLI, and remote CLI"
+        done: false
+      - description: "Define the validation-clarity, recovery-completion, and documentation-correctness acceptance bar"
+        done: false
+  - id: implementation
+    status: planned
+    tasks:
+      - description: "Make existing journeys completable and discoverable without new authority or storage semantics"
+        done: false
+      - description: "Align cross-surface behavior and validation presentation while keeping business rules in the shared Rust boundary"
+        done: false
+      - description: "Complete recovery flows to a user-visible done state and keep docs aligned with implementation"
+        done: false
+  - id: testing
+    status: planned
+    tasks:
+      - description: "Cover Product UX outcomes with focused regression tests on existing surfaces"
+        done: false
+      - description: "Keep the diagnostic corpus informational in 0.1.x; gate promotion remains separate v0.2 work"
+        done: false
