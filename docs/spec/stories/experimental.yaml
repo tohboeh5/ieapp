@@ -75,7 +75,7 @@ stories:
       - Semantic search returns entries by conceptual similarity
       - Combined with keyword search for best results
     requirements: []
-    milestone: AI-Enabled & AI-Used
+    milestone: Knowledge-to-tools North Star (future, not active v0.2 scope)
     status: planned
     implementation_notes: Search is keyword substring matching; embeddings and semantic ranking are absent.
     planned_apis:
@@ -91,7 +91,7 @@ stories:
       - Tasks invoke MCP resources/tools via schedules
       - Results logged and notifications sent
     requirements: []
-    milestone: AI-Enabled & AI-Used
+    milestone: Knowledge-to-tools North Star (future, not active v0.2 scope)
     status: planned
     implementation_notes: No schedule CRUD API, scheduler, or MCP tool execution pipeline is present.
     planned_apis:
