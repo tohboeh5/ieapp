@@ -1,0 +1,23 @@
+{
+  "name": "existing-space-reopen",
+  "description": "existing 0.1 Space fixture open -> mutate -> reopen uses the same draft boundary; stored representation round-trips",
+  "space_fixture": "fixtures/spaces/0.1",
+  "form": {
+    "id": "01900000-0000-7000-8000-0000000000a1",
+    "version": 1,
+    "name": "Note",
+    "fields": [
+      { "id": 100, "name": "Body", "field_type": "string", "required": true }
+    ],
+    "allow_extra_attributes": false
+  },
+  "stored_markdown": "---\nform: Note\ntags:\n  - kept\n---\n# Kept title\n\n## Body\n\nKept body.\n",
+  "mutated_markdown": "---\nform: Note\ntags:\n  - kept\n  - edited\n---\n# Kept title\n\n## Body\n\nEdited body.\n",
+  "expected": {
+    "title": "Kept title",
+    "tags": ["kept", "edited"],
+    "values": {
+      "100": "Edited body."
+    }
+  }
+}
